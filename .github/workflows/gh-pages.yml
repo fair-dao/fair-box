@@ -19,8 +19,8 @@ jobs:
         run: dotnet workload restore
       - name: Publish with dotnet
         run: dotnet publish superHost.h5/superHost.h5.csproj -p:CompressionEnabled=false  -c Release  --output build 
-      - name: Setup Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+      #- name: Setup Pages
+      #  uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
 
       - name: 上传生成物
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
