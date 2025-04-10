@@ -23,10 +23,15 @@ namespace fairdao.portal.h5
 
         public async Task<T> GetConfig<T>(string configId)
         {
-
-            T val = await Database.ConfigStore.Get<string, T>(configId);
-            if (val == null) return default(T);
-            return val;
+            try
+            {
+                T val = await Database.ConfigStore.Get<string, T>(configId);
+                if (val == null) return default(T);
+                return val;
+            }catch(Exception e)
+            {
+                return default(T);
+            }
         }
 
         public Task RemoveConfig(string configId)
