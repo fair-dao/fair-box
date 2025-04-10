@@ -26,6 +26,11 @@ jobs:
         run: dotnet workload restore
       - name: Publish with dotnet
         run: dotnet publish superHost.h5/superHost.h5.csproj -p:CompressionEnabled=false  -c Release  --output build 
+      - name: Rewrite base href
+        uses: SteveSandersonMS/ghaction-rewrite-base-href@5b54862a8831e012d4f1a8b2660894415fdde8ec # v1.1.0
+        with:
+          html_path: build/wwwroot/index.html
+          base_href: /superClient/
       - name: Setup Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
 
