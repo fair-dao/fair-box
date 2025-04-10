@@ -1,0 +1,90 @@
+﻿@page "/appCenter/docker/createContainer/{HostName}"
+@inherits AppCenterBase
+@namespace fairdao.extensions.appCenter.Pages
+@inject IDialogService DialogService
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["创建容器"] - (@CurAppHost?.Name)
+    </TitlePanel>
+    <ContentPanel>
+
+        <FluentStack Orientation="Orientation.Vertical">
+
+            <FluentSelect Label="快速创建模板"
+            Items=@Yamls
+            TOption="Records.DockerContainerTemplate"
+            OptionText="@(a=>a.Name+" ("+ a.Remark + ")")" OptionValue="a=>a.Name"
+            SelectedOptionChanged="TemplateChanged" />
+            <FluentTextField @bind-Value=Name style="width: 100%;" Label="@(Localer["容器名称"])" Placeholder="容器名称"></FluentTextField>
+            <FluentCombobox Placeholder="xxx/image:tag" Label="@(Localer["镜像"])" Autofocus="true" Items="@Images" @bind-Value="Image" OptionText="a=>a" OptionValue="a=>a" Height="200px" Immediate ImmediateDelay="100" />
+            <FluentTextArea @bind-Value=Mapcdir Label="@(Localer["挂载文件夹"])" Placeholder="/appdata:/app/data&#10;/appconfig:/config" style="width: 100%;"></FluentTextArea>
+           
+            <FluentTextArea @bind-Value=Ports Label="@(Localer["端口列表"])" Placeholder="8000:80&#10;1500:443" style="width: 100%;"></FluentTextArea>
+            <FluentTextArea @bind-Value=Envs Label="@(Localer["环境变量列表"])" Placeholder="account=admin&#10;password=yourpassword" style="width: 100%;"></FluentTextArea>
+
+            <div>
+                <FluentCheckbox @bind-Value="@AlwaysRun" Label="总是运行" />
+                <FluentCheckbox @bind-Value="@IsHost" Label="主机模式" />
+                <FluentCheckbox @bind-Value="@UseRoot" Label="使用Root用户" />
+            </div>
+            <div style="width:100%">
+                <FluentButton Appearance="Appearance.Accent" Loading="@(Loaded==false)" Style="width:100%" OnClick="OnCreateContainer">确定</FluentButton>
+            </div>
+        </FluentStack>
+    </ContentPanel>
+</FairdaoPage>
+
+<FluentDialogProvider />
+@code {
+
+        List<Records.DockerContainerTemplate> Yamls { get; set; }
+        List<string> Images{ get; set; }
+        string Name { get; set; }
+
+        string Image { get; set; }
+        string Envs { get; set; }
+        string Mapcdir { get; set; }
+
+        string Ports { get; set; }
+
+        bool AlwaysRun;
+        bool IsHost;
+        bool UseRoot;
+
+        async Task OnCreateContainer()
+        {
+            await WraperFromResult<string>($"{CurAppHost.ApiAddress}/Docker/CreateContainer", 
+            $"name={Name}&image={Image}&mapcdir={Mapcdir}&ports={Ports}&envs={Envs}&alwaysRun={(AlwaysRun ? "on" : "off")}&useRoot={(UseRoot ? "on" : "off")}&isHost={(IsHost ? "on" : "off")}",
+            HttpMethod.Post, token: CurAppHost.Token, okAction: async (data) =>
+                {
+                    Back();
+                });
+        }
+
+
+        void TemplateChanged(Records.DockerContainerTemplate selected)
+        {
+            Name = selected.Name;
+            Image = selected.Image;
+            Ports = selected.Ports;
+            UseRoot = selected.UseRoot;
+            Mapcdir = selected.Maps;
+            Envs = selected.Envs;
+
+            this.StateHasChanged();
+        }
+
+    protected async override Task OnInitializedAsync()
+    {
+        await WraperFromResult<Records.DockerCreateContainerData>($"{CurAppHost.ApiAddress}/Docker/GetContainerTemplates", "", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+        {
+            data.Templates.Insert(0, new Records.DockerContainerTemplate("", "请选择", "", "", "", "", "", "", false, false, "模板"));
+            Yamls = data.Templates;
+            Images = data.Images.ToList();
+        });
+
+        await base.OnInitializedAsync();
+    }
+
+
+}

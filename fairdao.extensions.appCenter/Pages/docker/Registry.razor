@@ -1,0 +1,122 @@
+﻿@page "/appCenter/docker/registry/{HostName}"
+@inherits AppCenterBase
+@namespace fairdao.extensions.appCenter.Pages
+@inject IDialogService DialogService
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        Docker @Localer["仓库密钥列表"] - (@CurAppHost?.Name)
+    </TitlePanel>
+    <ActionPanel>
+        <FluentIcon Value="@(new Icons.Regular.Size24.AddCircle())" Color="Color.Fill" OnClick="OnOpen" />
+    </ActionPanel>
+    <ContentPanel>
+
+        <FluentDataGrid Items="@Registries" Virtualize="true" ItemSize="46">
+            <ChildContent>
+                <TemplateColumn SortBy="@sortByName" Title="域名" InitialSortDirection="SortDirection.Ascending">
+                    @(context.ServerAddress)
+                </TemplateColumn>
+                <TemplateColumn Title="账号" Align="Align.Center">
+                    @(context.Account)
+                </TemplateColumn>
+                <TemplateColumn Title="Actions" Align="@Align.End">
+                    <FluentButton Title="删除" IconEnd="@(new Icons.Regular.Size16.Delete())" OnClick="@(() => Delete(context))" />
+                </TemplateColumn>
+            </ChildContent>
+            <EmptyContent>
+                <FairdaoPageMessage RecordNotFound></FairdaoPageMessage>
+            </EmptyContent>
+            <LoadingContent>
+                <FluentStack Orientation="Orientation.Vertical" HorizontalAlignment="HorizontalAlignment.Center">
+                    Loading...<br />
+                    <FluentProgress Width="240px" />
+                </FluentStack>
+            </LoadingContent>
+        </FluentDataGrid>
+
+    </ContentPanel>
+</FairdaoPage>
+<FluentDialog @ref="_myFluentDialog" @bind-Hidden="@Hidden" Modal="true" TrapFocus="true" PreventScroll="true">
+    <FluentDialogHeader Visible="false" />
+    <h2>添加仓库账户</h2>
+    <FluentStack Orientation="Orientation.Vertical">
+        <FluentTextField @bind-Value=ServerAddress style="width: 100%;" Label="@(Localer["仓库地址"])"></FluentTextField>
+        <FluentTextField @bind-Value=Email style="width: 100%;" Label="@(Localer["邮箱"])" Placeholder="标签列表:多个用,隔开"></FluentTextField>
+        <FluentTextField @bind-Value=Account style="width: 100%;" Label="@(Localer["账号"])"></FluentTextField>
+        <FluentTextField @bind-Value=Password style="width: 100%;" Label="@(Localer["密码"])"></FluentTextField>
+        <FluentTextField @bind-Value=Token style="width: 100%;" Label="Token"></FluentTextField>
+    </FluentStack>
+    <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="height:60px;">
+        <FluentButton Appearance="Appearance.Accent" OnClick="CreateService">创建</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" Autofocus="true" @onclick="OnClose">关闭</FluentButton>
+    </FluentStack>
+</FluentDialog>
+<FluentDialogProvider />
+<FluentToastProvider />
+@code {
+    IQueryable<shared.Records.DockerRegistry> Registries;
+    GridSort<shared.Records.DockerRegistry> sortByName = GridSort<shared.Records.DockerRegistry>.ByAscending(p => p.ServerAddress);
+
+    string ServerAddress;
+    string Email;
+    string Account;
+    string Password;
+    string Token;
+
+    private FluentDialog? _myFluentDialog;
+    private bool Hidden { get; set; } = true;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+            _myFluentDialog!.Hide();
+    }
+
+    private void OnOpen()
+    {
+        _myFluentDialog!.Show();
+    }
+
+    private void OnClose()
+    {
+
+        _myFluentDialog!.Hide();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        LoadSecrets();
+        base.OnInitializedAsync();
+    }
+
+
+
+    void LoadSecrets()
+    {
+        WraperFromResult<List<shared.Records.DockerRegistry>>($"{CurAppHost.ApiAddress}/Docker/RegistryAuth/ls", "", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+     {
+         Registries = data.AsQueryable();
+         this.StateHasChanged();
+     });
+    }
+
+    void Delete(shared.Records.DockerRegistry image)
+    {
+        WraperFromResult<string>($"{CurAppHost.ApiAddress}/Docker/RegistryAuth/rm/{image.ServerAddress}", "", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+     {
+
+         LoadSecrets();
+     });
+    }
+
+    async Task CreateService()
+    {
+        WraperFromResult<string>($"{CurAppHost.ApiAddress}/Docker/RegistryAuth/Create", $"serverAddress={ServerAddress}&userName={Account}&password={Password}&email={Email}&registryToken={Token}", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+    {
+        _myFluentDialog!.Hide();
+        LoadSecrets();
+    });
+    }
+
+}

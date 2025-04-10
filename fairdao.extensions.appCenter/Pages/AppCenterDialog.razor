@@ -1,0 +1,133 @@
+﻿@implements IDialogContentComponent<AppHost>
+@inherits fairdao.extensions.shared.Pages.Page
+@namespace fairdao.extensions.appCenter.Pages
+@using static fairdao.extensions.appCenter.shared.Records
+<FluentStack Orientation=" Microsoft.FluentUI.AspNetCore.Components.Orientation.Vertical">
+    <FluentTextField @bind-Value="@ApiAddress" Style="width:100%">API地址:</FluentTextField>
+    @if (Content.BaseInfo != null)
+    {
+        <FluentStack>
+            <FluentLabel>系统：</FluentLabel>
+            @Content.BaseInfo.OSName
+        </FluentStack>
+        <FluentStack>
+            <FluentLabel>计算机名：</FluentLabel>
+            @Content.BaseInfo.HostName
+        </FluentStack>
+
+        <FluentStack>
+            <FluentLabel>网卡：</FluentLabel>
+            @Content.BaseInfo.NICName
+            <FluentSpacer />
+            <FluentLabel>速率：</FluentLabel>
+            @Math.Round((decimal)Content.BaseInfo.NetMax / 1000000, 0)Mbps
+        </FluentStack>
+        <FluentStack>
+            <FluentLabel>@Localer["核心数量", "appcenter"]：</FluentLabel>
+            @Content.BaseInfo.Cores
+            <FluentSpacer />
+            <FluentLabel>内存：</FluentLabel>
+            @Math.Round(Content.BaseInfo.MemoryTotal / 1024 / 1024 / 1024, 1) G
+        </FluentStack>
+        <FluentStack>
+            <FluentLabel>系统盘：</FluentLabel>
+            @(Math.Round((decimal)Content.BaseInfo.SysDiskTotal / 1024 / 1024 / 1024, 1)) G
+            <FluentSpacer />
+            <FluentLabel>应用盘：</FluentLabel>
+            @(Math.Round((decimal)Content.BaseInfo.AppDiskTotal / 1024 / 1024 / 1024, 1)) G
+        </FluentStack>
+        <FluentTextField @bind-Value="@Content.Name" Style="width:100%">主机名称:</FluentTextField>
+
+        @if (!Content.BaseInfo.Inited)
+        {
+            <FluentDivider Style="width: 100%; margin: 1rem 0" />
+            <FluentPopover Style="width: 350px;" AnchorId="info" FixedPlacement="true" @bind-Open="@_popVisible">
+                <Header>@Localer["初始化主机"]</Header>
+                <Body>
+                    <p>
+                        初始化主机会自动生成主机管理信息（账户以及管理员API Key),请妥善保管好您的管理员信息
+                    </p>
+                    <p>
+                        万一丢失管理员信息，请在hostBox安装文件下的app_data/config下查找。
+                    </p>
+
+                </Body>
+            </FluentPopover>
+            <FluentStack>
+                <FluentButton OnClick="RequestAPIToken" Style="width: calc(100% - 32px)">初始化主机</FluentButton>
+                <FluentIcon Id="info" Value="@(new Icons.Regular.Size24.Info())" OnClick="@(() => _popVisible = !_popVisible)" />
+            </FluentStack>
+        }
+        else
+        {
+            <FluentTextField @bind-Value="@Content.Token" Style="width:100%">API Token:(在config文件夹下)</FluentTextField>
+        }
+
+    }
+
+    @if (initResult != null)
+    {
+        <div>
+            请保管好以下信息:
+        </div>
+        <div>
+            API Token： @initResult.APIToken
+        </div>
+        <div>
+            管理员账号： @initResult.Account
+        </div>
+        <div>
+            管理员密码： @initResult.Password
+        </div>
+
+    }
+
+</FluentStack>
+@code {
+    [Parameter]
+    public AppHost Content { get; set; } = default!;
+
+    [CascadingParameter]
+    public FluentDialog? Dialog { get; set; }
+
+    bool _popVisible;
+    InitResult initResult;
+
+
+    string ApiAddress
+    {
+        get
+        {
+            return Content.ApiAddress;
+        }
+        set
+        {
+            Content.ApiAddress = value;
+            GetHostInfo();
+        }
+    }
+
+    async void RequestAPIToken()
+    {
+        await WraperFromResult<InitResult>($"{Content.ApiAddress}/Sys/Init", $"deviceType=web&did=", okAction: (data) =>
+         {
+             Content.Token = data.APIToken;
+             Content.Name = $"{data.HostName}";
+             Content.BaseInfo = new HostInfo.Base(data.HostName, data.OSName, 0, 0, 0, 0, "", 0, true);
+             initResult = data;
+             this.StateHasChanged();
+         });
+
+    }
+
+    async void GetHostInfo()
+    {
+        await WraperFromResult<HostInfo.Base>($"{Content.ApiAddress}/Sys/Info", okAction: (data) =>
+        {
+            Content.BaseInfo = data;
+            Content.Name = $"{data.OSName}-{data.HostName}";
+            this.StateHasChanged();
+        });
+
+    }
+}

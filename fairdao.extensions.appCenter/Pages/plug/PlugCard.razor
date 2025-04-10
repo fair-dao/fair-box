@@ -1,0 +1,125 @@
+﻿@inherits AppCenterBase
+@namespace fairdao.extensions.appCenter.Pages
+@if (DataSource != null)
+{
+    <FluentCard>
+        <FluentHeader>
+            @DataSource.Name ( @DataSource.CurVersion )
+            <FluentSpacer />
+            <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" Title="@Localer["移除"]" Color="Color.Fill" OnClick="@(() => Delete() )" />
+        </FluentHeader>
+        <p></p>
+        <FluentStack Orientation=" Microsoft.FluentUI.AspNetCore.Components.Orientation.Vertical" HorizontalAlignment="HorizontalAlignment.Center">
+            <FluentStack>
+                <FluentSelect TOption="String"
+                              Label="选择运行版本"
+                              Items="@DataSource.Versions"
+                              Width="200px"
+                              Height="250px"
+                              OptionValue="@(p => p)"
+                              OptionText="@(p => p)"
+                              @bind-Value="CurVer">
+                </FluentSelect>
+            </FluentStack>
+        </FluentStack>
+        <FluentStack>
+            <FluentLabel>类型：</FluentLabel>
+            @DataSource.Type
+            <FluentSpacer />
+            <FluentLabel>状态/自动启动：</FluentLabel>
+            @(DataSource.State)/@DataSource.Autostart
+        </FluentStack>
+        <FluentStack>
+            <FluentLabel>文件夹：</FluentLabel>
+            @DataSource.DirName
+            <FluentSpacer />
+
+        </FluentStack>
+        <FluentLabel>入口：</FluentLabel>
+        @DataSource.EntryPoint
+        <p></p>
+        <FluentDivider Style="padding-bottom:1rem;" />
+        <FluentStack VerticalAlignment="VerticalAlignment.Center" Width="100%">
+            <FluentSpacer />
+            @if (DataSource.State != "Running")
+            {
+                <FluentButton Title="运行" IconEnd="@(new Icons.Regular.Size20.Play())" OnClick="@(() =>CallAPI(AppHost,$"/Sys/RunPlug/{DataSource.DirName}",okAction:()=>{LoadCurPlug();}))" />
+            }
+            @if (DataSource.State != "Stoped")
+            {
+                <FluentButton Title="停止" IconEnd="@(new Icons.Regular.Size20.RecordStop())" OnClick="@(() =>CallAPI(AppHost,$"/Sys/StopPlug/{DataSource.DirName}",okAction:()=>{LoadCurPlug();}))" />
+            }
+
+            <FluentButton Title="@($"设置为{(DataSource.Autostart? "禁止自动启动":"允许自动启动")}")"
+                          IconEnd="@(new Icons.Regular.Size20.Clock())" OnClick="@(() =>CallAPI(AppHost,$"/Sys/SetPlugAutostart/{DataSource.DirName}/{!DataSource.Autostart}",okAction:()=>{LoadCurPlug();}))" />
+            <FluentButton Title="删除" IconEnd="@(new Icons.Regular.Size20.Delete())" OnClick="@(() =>CallAPI(AppHost,$"/Proxy/DelSite/{DataSource.Name}",okAction:()=>{LoadCurPlug();}))" />
+        </FluentStack>
+
+    </FluentCard>
+}
+
+@code {
+    string curVer;
+
+    string CurVer
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(curVer))
+            {
+                curVer = DataSource.CurVersion;
+            }
+            return curVer;
+
+        }
+        set
+        {
+            curVer = value;
+            VersionChanged(curVer);
+
+        }
+    }
+
+    [Parameter]
+    public Records.PlugInfo DataSource { get; set; }
+
+    [Parameter]
+    public AppHost AppHost { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCurPlug();
+        await base.OnInitializedAsync();
+    }
+
+    async Task LoadCurPlug()
+    {
+        await WraperFromResult<Records.PlugInfo>($"{AppHost.ApiAddress}/Sys/GetPlug/{DataSource.DirName}", token: AppHost.Token, okAction: (data) =>
+                  {
+                      CurVer = data.CurVersion;
+                      DataSource = data;
+
+                      StateHasChanged();
+                  });
+    }
+
+    async void VersionChanged(string newVer)
+    {
+        if (newVer != DataSource.CurVersion)
+        {
+            await WraperFromResult<string>($"{AppHost.ApiAddress}/Sys/ChangedPlugVersion/{DataSource.DirName}/{newVer}", "", HttpMethod.Post, token: AppHost.Token, okAction: async (data) =>
+      {
+          await LoadCurPlug();
+      });
+        }
+
+    }
+
+    async void Delete()
+    {
+        await WraperFromResult<string>($"{AppHost.ApiAddress}/Sys/PlugDelete/{DataSource.DirName}", token: AppHost.Token, okAction: async (data) =>
+           {
+               await GoBack();
+           });
+    }
+}

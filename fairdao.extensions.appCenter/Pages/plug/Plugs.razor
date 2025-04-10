@@ -1,0 +1,52 @@
+﻿@page "/appCenter/plugs/{HostName}"
+@inherits AppCenterBase
+@namespace fairdao.extensions.appCenter.Pages
+@inject IDialogService DialogService
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["插件列表"] - (@CurAppHost?.Name)
+    </TitlePanel>
+    <ContentPanel>
+        <FluentGrid>
+            @if (PlugList != null)
+            {
+                @foreach (var item in PlugList)
+                {
+                    <FluentGridItem sm="12" lg="4">
+                        <PlugCard DataSource="@item" AppHost="CurAppHost" />
+                    </FluentGridItem>
+                }
+            }
+        </FluentGrid>
+    </ContentPanel>
+</FairdaoPage>
+<FluentDialogProvider />
+<FluentToastProvider />
+@code {
+
+
+    IQueryable<shared.Records.PlugInfo> PlugList;
+    GridSort<shared.Records.PlugInfo> sortByName = GridSort<shared.Records.PlugInfo>.ByAscending(p => p.Name);
+
+
+    protected override async Task OnInitializedAsync()
+    {
+      
+        LoadPlugs();
+        base.OnInitializedAsync();
+    }
+
+
+    void LoadPlugs()
+    {
+        WraperFromResult<List<shared.Records.PlugInfo>>($"{CurAppHost.ApiAddress}/Sys/GetPlugs", HttpMethod.Post,
+        token: CurAppHost.Token, okAction: (data) =>
+     {
+         PlugList = data.AsQueryable();
+         this.StateHasChanged();
+     });
+    }
+
+
+
+}

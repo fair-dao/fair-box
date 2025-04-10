@@ -1,0 +1,181 @@
+﻿@page "/appCenter/webSite/{HostName}"
+@inherits AppCenterBase
+@namespace fairdao.extensions.appCenter.Pages
+@inject IDialogService DialogService
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["站点列表"] - (@CurAppHost?.Name)
+    </TitlePanel>
+    <ActionPanel>
+        <FluentIcon Value="@(new Icons.Regular.Size24.AddCircle())" Color="Color.Fill" OnClick="OnOpen" />
+    </ActionPanel>
+    <ContentPanel>
+
+        <FluentDataGrid Items="@SiteMaps" Virtualize="true" ItemSize="46">
+            <ChildContent>
+                <TemplateColumn SortBy="@sortByName" Title="名称" InitialSortDirection="SortDirection.Ascending">
+                    @(context.Name)
+                </TemplateColumn>
+                <TemplateColumn Title="访问地址" Align="Align.Center">
+                    @(context.Domain)
+                </TemplateColumn>
+                <TemplateColumn Title="映射目标(上游)" Align="Align.Center">
+                    @(context.Maps)
+                </TemplateColumn>
+                <TemplateColumn Title="类型" Align="Align.Center">
+                    @(context.Type)
+                </TemplateColumn>
+                <TemplateColumn Title="站点根目录" Align="Align.Center">
+                    @(context.RootPath)
+                </TemplateColumn>
+                <TemplateColumn Title="启用" Align="Align.Center">
+                    @(context.Enabled)
+                </TemplateColumn>
+                <TemplateColumn Title="流量" Align="Align.Center">
+                    @(context.Traffic)
+                </TemplateColumn>
+                <TemplateColumn Title="访问次数" Align="Align.Center">
+                    @(context.Visit)
+                </TemplateColumn>
+                <TemplateColumn Title="操作" Align="@Align.End">
+                    <FluentButton Title="站点文件夹" IconEnd="@(new Icons.Regular.Size20.GlobeArrowUp())" OnClick="@(() =>navManager.NavigateTo($"/appCenter/disk/list/{HostName}/{Uri.EscapeDataString(context.RootPath)}"))" />
+                    <FluentButton Title="启用" IconEnd="@(new Icons.Regular.Size20.PresenceAvailable())" OnClick="@(() =>CallAPI($"/Proxy/DisableSite/{context.Name}/true",okAction:()=>{LoadSites();}))" />
+                    <FluentButton Title="禁用" IconEnd="@(new Icons.Regular.Size20.PresenceOffline())" OnClick="@(() =>CallAPI($"/Proxy/DisableSite/{context.Name}/false",okAction:()=>{LoadSites();}))" />
+                    <FluentButton Title="删除" IconEnd="@(new Icons.Regular.Size20.Delete())" OnClick="@(() =>CallAPI($"/Proxy/DelSite/{context.Name}",okAction:()=>{LoadSites();}))" />
+                </TemplateColumn>
+            </ChildContent>
+            <EmptyContent>
+                <FairdaoPageMessage RecordNotFound></FairdaoPageMessage>
+            </EmptyContent>
+            <LoadingContent>
+                Loading...
+            </LoadingContent>
+
+        </FluentDataGrid>
+
+    </ContentPanel>
+</FairdaoPage>
+<FluentDialog @ref="_myFluentDialog" @bind-Hidden="@Hidden" Modal="true" TrapFocus="true" PreventScroll="true">
+    <FluentDialogHeader Visible="false" />
+    <h2>创建网站</h2>
+    <FluentStack Orientation="Orientation.Vertical">
+
+        <FluentTextField @bind-Value=name style="width: 100%;" Label="@(Localer["网站名称"])" Placeholder="default"></FluentTextField>
+        <FluentSelect TOption="String" @bind-Value=Mode Label="网站类型">
+            <FluentOption Value="local" Selected="true">本地文件夹</FluentOption>
+            <FluentOption Value="redirect">直接跳转</FluentOption>
+            <FluentOption Value="proxy">反向代理</FluentOption>
+        </FluentSelect>
+
+
+        <FluentSelect TOption="String" Width="80" @bind-Value=BindType Label="绑定类型">
+            <FluentOption Value="http" Selected="true">http</FluentOption>
+            <FluentOption Value="https">https</FluentOption>
+        </FluentSelect>
+        @if (bindType == "https")
+        {
+            <FluentSwitch @bind-Value=RequestCert Label="自动申请证书" />
+        }
+
+
+        <FluentTextField @bind-Value=domains Label="@(Localer["主机名列表"])" Placeholder="domain1.com,domain2.net"></FluentTextField>
+
+        <FluentNumberField @bind-Value="Port" Label="端口" />
+        @if (Mode != "local")
+        {
+            <FluentTextArea @bind-Value=Des style="width: 100%;" Label="@(Localer["映射表(可负载均衡)"])" Placeholder="/=>https://w1.proxy.com,https://w2.proxy.com &#10;/api=>https://api.proxy.com"></FluentTextArea>
+        }
+        else
+        {
+            <FluentTextField @bind-Value=Des style="width: 100%;" Label="@(Localer["本地文件夹"])"></FluentTextField>
+        }
+        @if (Mode == "proxy")
+        {
+            <FluentSwitch @bind-Value=CacheStaticFile Label="缓存静态文件" />
+        }
+    </FluentStack>
+    <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="height:60px;">
+        <FluentButton Appearance="Appearance.Accent" OnClick="CreateService">创建</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" Autofocus="true" @onclick="OnClose">关闭</FluentButton>
+    </FluentStack>
+</FluentDialog>
+<FluentDialogProvider />
+<FluentToastProvider />
+@code {
+    private FluentDialog? _myFluentDialog;
+    private bool Hidden { get; set; } = true;
+    IQueryable<shared.Records.SiteMap> SiteMaps;
+    string name;
+    string domains;
+    string Des;
+    string bindType = "http";
+    string BindType
+    {
+        get
+        {
+            return bindType;
+
+        }
+        set
+        {
+            bindType = value;
+            if (bindType == "https")
+            {
+                Port = 443;
+            }
+            else Port = 80;
+        }
+    }
+    int? Port = 80;
+    string Mode = "local";
+    bool RequestCert = false;
+    bool CacheStaticFile = false;
+    GridSort<shared.Records.SiteMap> sortByName = GridSort<shared.Records.SiteMap>.ByAscending(p => p.Name);
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        LoadSites();
+        base.OnInitializedAsync();
+    }
+
+    private void OnOpen()
+    {
+        _myFluentDialog!.Show();
+    }
+
+    private void OnClose()
+    {
+
+        _myFluentDialog!.Hide();
+    }
+
+
+    void LoadSites()
+    {
+        WraperFromResult<List<shared.Records.SiteMap>>($"{CurAppHost.ApiAddress}/Proxy/Maps", "", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+     {
+         SiteMaps = data.AsQueryable();
+         this.StateHasChanged();
+     });
+    }
+
+    void Delete(shared.Records.SiteMap image)
+    {
+        WraperFromResult<string>($"{CurAppHost.ApiAddress}/Docker/ServiceRemove/{image.Name}", "", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+           {
+               LoadSites();
+           });
+    }
+
+    async Task CreateService()
+    {
+        WraperFromResult<List<shared.Records.SiteMap>>($"{CurAppHost.ApiAddress}/Proxy/CreateSite", $"name={name}&bindType={bindType}&domains={domains}&port={Port}&des={Des}&mode={Mode}&requestCert={RequestCert}&cacheStaticFile={CacheStaticFile}", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+    {
+        _myFluentDialog!.Hide();
+        LoadSites();
+        this.StateHasChanged();
+    });
+    }
+
+}

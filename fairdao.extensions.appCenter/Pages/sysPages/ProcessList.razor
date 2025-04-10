@@ -1,0 +1,52 @@
+﻿@page "/appCenter/processList/{HostName}"
+@inherits AppCenterBase
+@namespace fairdao.extensions.appCenter.Pages
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["进程列表"]
+    </TitlePanel>
+    <ContentPanel>
+        @if (processInfos == null)
+        {
+            <FluentProgressRing></FluentProgressRing>
+        }
+        else
+        {
+            <FluentDataGrid Items="@processInfos" Virtualize="true" ItemSize="46">
+                <TemplateColumn Tooltip="true" SortBy="@sortById" TooltipText="@(c => "Id of " + c.Name)" Title="进程Id" Align="Align.Center" InitialSortDirection="SortDirection.Ascending">
+                    @(context.ID)
+                </TemplateColumn>
+                <TemplateColumn Tooltip="true" SortBy="@sortByName" TooltipText="@(c => "Id of " + c.Name)" Title="进程名" InitialSortDirection="SortDirection.Ascending">
+                    @(context.Name)
+                </TemplateColumn>
+                <TemplateColumn SortBy="@sortByMemory" Title="占用内存(M)" Align="Align.Center" InitialSortDirection="SortDirection.Ascending" IsDefaultSortColumn=true>
+                    @(context.Memory)
+                </TemplateColumn>
+                <TemplateColumn Title="操作" Align="@Align.End">
+
+                    <FluentButton Title="删除" IconEnd="@(new Icons.Regular.Size20.Delete())" OnClick="@(() =>CallAPI($"/Sys/KillProcess/{context.ID}",okAction:()=>{LoadProcess();}))" />
+                </TemplateColumn>
+            </FluentDataGrid>
+        }
+    </ContentPanel>
+</FairdaoPage>
+@code {
+    IQueryable<shared.Records.ProcessInfo> processInfos;
+
+    GridSort<shared.Records.ProcessInfo> sortById = GridSort<shared.Records.ProcessInfo>.ByAscending(p => p.ID);
+    GridSort<shared.Records.ProcessInfo> sortByName = GridSort<shared.Records.ProcessInfo>.ByAscending(p => p.Name);
+    GridSort<shared.Records.ProcessInfo> sortByMemory = GridSort<shared.Records.ProcessInfo>.ByAscending(p => p.Memory);
+    protected override async Task OnInitializedAsync()
+    {
+        LoadProcess();
+        await base.OnInitializedAsync();
+    }
+    async void LoadProcess(){
+
+        await WraperFromResult<List<shared.Records.ProcessInfo>>($"{CurAppHost.ApiAddress}/Proxy/Process", "", token: CurAppHost.Token, okAction: (data) =>
+         {
+             processInfos = data.AsQueryable();
+             this.StateHasChanged();
+         });
+    }
+}

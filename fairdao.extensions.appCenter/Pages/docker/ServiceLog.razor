@@ -1,0 +1,43 @@
+﻿@page "/appCenter/docker/serviceLog/{HostName}/{ServiceId}"
+@inherits AppCenterBase
+@namespace fairdao.extensions.appCenter.Pages
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["服务日志"] - (@CurAppHost?.Name)
+    </TitlePanel>
+    <ContentPanel>
+        <div>
+            服务未正常启动，请在命令行输入如下语句查看详情：
+        </div>
+        <div>docker service ps  @ServiceId  --no-trunc</div>
+
+        @((MarkupString)Detail)
+    </ContentPanel>
+</FairdaoPage>
+
+<FluentDialogProvider />
+@code {
+
+    string Detail { get; set; }
+    [Parameter]
+    public string ServiceId { get; set; }
+
+
+    protected  override Task OnInitializedAsync()
+    {
+
+
+         WraperFromResult<String>($"{CurAppHost.ApiAddress}/Docker/Service/Log/{ServiceId}", "", HttpMethod.Post, token: CurAppHost.Token, okAction:  (data) =>
+        {
+            Detail = data;
+            this.StateHasChanged();
+
+        });
+
+       return  base.OnInitializedAsync();
+    }
+
+
+
+
+}

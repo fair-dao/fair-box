@@ -1,0 +1,79 @@
+﻿@using static fairdao.extensions.appCenter.shared.Records
+@inherits fairdao.extensions.shared.Pages.Page
+@namespace fairdao.extensions.appCenter.Pages
+<FluentStack VerticalAlignment="VerticalAlignment.Center" Width="100%">
+    <FluentAnchor Id="@($"pbtn{DataSource.Name}")" Href="#" title="@Localer["更多"]" OnClick="()=>_visible = !_visible">
+        <FluentIcon Value="@(new Icons.Regular.Size20.HomeMore())" />
+    </FluentAnchor>
+    <FluentSpacer />
+    <FluentAnchor Href="@($"/appCenter/dockerManager/{DataSource.Name}")" title="@Localer["Docker 管理"]">
+        <FluentIcon Value="@(new Icons.Regular.Size20.DockRow())" />
+    </FluentAnchor>
+    <FluentAnchor Href="@($"/appCenter/disk/list/{DataSource.Name}")" title="@Localer["文件管理"]">
+        <FluentIcon Value="@(new Icons.Regular.Size20.DocumentBulletListMultiple())" />
+    </FluentAnchor>
+    <FluentAnchor Href="@($"/appCenter/webSite/{DataSource.Name}")" title="@Localer["网站管理"]">
+        <FluentIcon Value="@(new Icons.Regular.Size20.BookOpenGlobe())" />
+    </FluentAnchor>
+
+
+    <FluentPopover Style="width: 200px;" VerticalThreshold="170"
+                   AnchorId="@($"pbtn{DataSource.Name}")" @bind-Open="_visible">
+        <Header>
+            <FluentLabel Typo="Typography.H4" MarginBlock="1rem"> @Localer["操作面板"]</FluentLabel>
+            <FluentDivider />
+        </Header>
+        <Body>
+        
+            <FluentStack Orientation="Microsoft.FluentUI.AspNetCore.Components.Orientation.Vertical" VerticalAlignment="VerticalAlignment.Center">
+                <FluentAnchor IconStart="@(new Icons.Regular.Size20.LayerDiagonal())" Appearance="Appearance.Stealth" Href="@($"/appCenter/processList/{DataSource.Name}")" title="@Localer["系统进程"]">
+                    @Localer["系统进程"]
+                </FluentAnchor>
+                <FluentAnchor IconStart="@(new Icons.Regular.Size20.BracesVariable())" Appearance="Appearance.Stealth" Href="@($"/appCenter/env/{DataSource.Name}")" title="@Localer["环境变量"]">
+                    @Localer["环境变量"]
+                </FluentAnchor>
+                <FluentAnchor IconStart="@(new Icons.Regular.Size20.Info())" Appearance="Appearance.Stealth" Href="@($"/appCenter/requestHead/{DataSource.Name}")" title="@Localer["请求信息"]">
+                   @Localer["请求信息"]
+                </FluentAnchor>
+                <FluentAnchor IconStart="@(new Icons.Regular.Size20.Certificate())" Appearance="Appearance.Stealth" Href="@($"/appCenter/certs/{DataSource.Name}")" title="@Localer["证书管理"]">
+                  @Localer["证书管理"]
+                </FluentAnchor>
+            
+                <FluentAnchor IconStart="@(new Icons.Regular.Size20.UsbPlug())" Appearance="Appearance.Stealth" Href="@($"/appCenter/plugs/{DataSource.Name}")" title="@Localer["插件管理"]">
+                    @Localer["插件管理"]
+                </FluentAnchor>
+                <FluentAnchor IconStart="@(new Icons.Regular.Size20.BookClock())" Appearance="Appearance.Stealth" Href="@($"/appCenter/logs/{DataSource.Name}")" title="@Localer["系统日志"]">
+                    @Localer["系统日志"]
+                </FluentAnchor>
+                <FluentAnchor IconStart="@(new Icons.Regular.Size20.ArrowAutofitUp())" Appearance="Appearance.Stealth"
+                              Href="#" title="@Localer["升级主机"]" OnClick="UpgradeHost">
+                    @Localer["升级主机"]
+                </FluentAnchor>
+                
+            </FluentStack>
+        </Body>
+        <Footer>
+            <FluentDivider  />
+            @DataSource?.Name
+        </Footer>
+    </FluentPopover>
+
+</FluentStack>
+
+@code {
+
+
+    bool _visible;
+
+    [Parameter]
+    public AppHost DataSource { get; set; }
+
+
+    void UpgradeHost(){
+
+        WraperFromResult<Records.UpgradeResult>($"{DataSource.ApiAddress}/Sys/Upgrade", HttpMethod.Post, token: DataSource.Token, okAction: (data) =>
+        {
+            DialogService.ShowSuccessAsync($"主机服务升级请求已提交！服务器升级到{data.ServerVer} 版本,客户端需要使用{data.ClientVer} 版本，客户羰下载地址为: {data.ClientDownloadLink}");
+        });
+    }
+}

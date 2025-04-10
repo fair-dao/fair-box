@@ -1,0 +1,37 @@
+﻿@page "/appCenter/requestHead/{HostName}"
+@inherits AppCenterBase
+@namespace fairdao.extensions.appCenter.Pages
+@using static fairdao.extensions.appCenter.shared.Records
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["环境变量"]
+    </TitlePanel>
+    <ContentPanel>
+        <FluentDataGrid Items="@envs" Virtualize="true" ItemSize="46">
+            <TemplateColumn SortBy="@sortByName" Title="名称" InitialSortDirection="SortDirection.Ascending">
+                @(context.Name)
+            </TemplateColumn>
+            <TemplateColumn SortBy="@sortByName" Title="值">
+                @(context.Value)
+            </TemplateColumn>
+
+        </FluentDataGrid>
+
+    </ContentPanel>
+</FairdaoPage>
+@code {
+    IQueryable<NameValue> envs;
+
+    GridSort<NameValue> sortByName = GridSort<NameValue>.ByAscending(p => p.Name);
+    protected override async Task OnInitializedAsync()
+    {
+
+        await WraperFromResult<List<NameValue>>($"{CurAppHost.ApiAddress}/Proxy/Heads", token: CurAppHost.Token, okAction: (data) =>
+           {
+               envs = data.AsQueryable();
+               this.StateHasChanged();
+           });
+
+       base.OnInitializedAsync();
+    }
+}

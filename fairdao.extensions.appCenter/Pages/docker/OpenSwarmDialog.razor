@@ -1,0 +1,21 @@
+﻿@implements IDialogContentComponent<DockerSwarmInitParameter>
+@namespace fairdao.extensions.appCenter.Pages
+<FluentRadioGroup Name="numbers" @bind-Value="@Content.NodeType" Label="节点类型">
+    <FluentRadio Value="@("main")" Checked="true">主节点</FluentRadio>
+    <FluentRadio Value="@("worker")">工作节点</FluentRadio>
+</FluentRadioGroup>
+<FluentTextField @bind-Value="@Content.IpAddress">IP地址:</FluentTextField>
+<FluentTextField @bind-Value="@Content.Token">Token(主节点Token):</FluentTextField>
+
+@code {
+    [Parameter]
+    public DockerSwarmInitParameter Content { get; set; } = default!;
+
+    [CascadingParameter]
+    public FluentDialog? Dialog { get; set; }
+
+    private void ToggleDialogPrimaryActionButton(bool enable)
+    {
+        Dialog!.TogglePrimaryActionButton(enable);
+    }
+}

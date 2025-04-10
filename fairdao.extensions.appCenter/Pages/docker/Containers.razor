@@ -1,0 +1,109 @@
+﻿@page "/appCenter/docker/containers/{HostName}"
+@inherits AppCenterBase
+@namespace fairdao.extensions.appCenter.Pages
+@inject IDialogService DialogService
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        Docker @Localer["容器列表"] - (@CurAppHost?.Name)
+    </TitlePanel>
+    <ActionPanel>
+        <FluentIcon Value="@(new Icons.Regular.Size24.AddCircle())" Color="Color.Fill" OnClick="OnCreateContainer" />
+    </ActionPanel>
+    <ContentPanel>
+        @if (Loaded != true)
+        {
+            <FluentProgressRing></FluentProgressRing>
+        }
+        else
+        {
+            <FluentDataGrid Items="@ContainerList" Virtualize="true" ItemSize="46">
+                <TemplateColumn SortBy="@sortByName" Title="@Localer["容器名"]" InitialSortDirection="SortDirection.Ascending">
+                    @(context.Name)
+                </TemplateColumn>
+                <TemplateColumn Title="Id" Align="Align.Center">
+                    @(context.Id?.Substring(7, 6))
+                </TemplateColumn>
+                <TemplateColumn Title="@Localer["镜像"]" Align="Align.Center">
+                    @(context.Image)
+                </TemplateColumn>
+                <TemplateColumn Title="@Localer["端口映射"]" Align="Align.Center">
+                    @(context.Ports)
+                </TemplateColumn>
+                <TemplateColumn Title="@Localer["状态"]" Align="Align.Center">
+                    @(context.Status)
+                </TemplateColumn>
+                <TemplateColumn Title="命令" Tooltip="true">
+                    @(context.Command)
+                </TemplateColumn>
+                <TemplateColumn SortBy="@sortByTime" Title="创建时间" Align="Align.End" InitialSortDirection="SortDirection.Descending" IsDefaultSortColumn=true>
+                    @(context.Created.ToString("yy-MM-dd HH:mm"))
+                </TemplateColumn>
+                <TemplateColumn Title="Actions" Align="@Align.End">
+                    <FluentButton Title="日志" IconEnd="@(new Icons.Regular.Size20.Info())" OnClick="@(() => NavManager.NavigateTo($"/appCenter/docker/containerLog/{HostName}/{context.Id}"))" />
+                    <FluentButton Title="详情" IconEnd="@(new Icons.Regular.Size20.AppsListDetail())" OnClick="@(() => NavManager.NavigateTo($"/appCenter/docker/containerDetail/{HostName}/{context.Id}"))" />
+                    <FluentButton Title="重启" IconEnd="@(new Icons.Regular.Size20.ArrowClockwise())" OnClick="@(() => Restart(context))" />
+                    <FluentButton Title="停止" IconEnd="@(new Icons.Regular.Size20.Stop())" OnClick="@(() => Stop(context))" />
+                    <FluentButton Title="移除" IconEnd="@(new Icons.Regular.Size16.Delete())" OnClick="@(() => Delete(context))" />
+                </TemplateColumn>
+            </FluentDataGrid>
+        }
+    </ContentPanel>
+</FairdaoPage>
+
+
+<FluentDialogProvider />
+<FluentToastProvider />
+@code {
+    IQueryable<shared.Records.DockerContainer> ContainerList;
+    GridSort<shared.Records.DockerContainer> sortByName = GridSort<shared.Records.DockerContainer>.ByAscending(p => p.Name);
+    GridSort<shared.Records.DockerContainer> sortByMemory = GridSort<shared.Records.DockerContainer>.ByAscending(p => p.Size);
+    GridSort<shared.Records.DockerContainer> sortByTime = GridSort<shared.Records.DockerContainer>.ByAscending(p => p.Created);
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        LoadImages();
+        base.OnInitializedAsync();
+    }
+
+
+    void LoadImages()
+    {
+        WraperFromResult<List<shared.Records.DockerContainer>>($"{CurAppHost.ApiAddress}/Docker/Containers", "", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+     {
+         ContainerList = data.AsQueryable();
+         this.StateHasChanged();
+     });
+    }
+
+    void Delete(shared.Records.DockerContainer image)
+    {
+        WraperFromResult<string>($"{CurAppHost.ApiAddress}/Docker/RemoveContainer/{image.Id}", "", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+     {
+         LoadImages();
+     });
+    }
+
+
+    void Restart(shared.Records.DockerContainer image)
+    {
+        WraperFromResult<string>($"{CurAppHost.ApiAddress}/Docker/Restart/{image.Id}", "", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+     {
+         LoadImages();
+     });
+    }
+    void Stop(shared.Records.DockerContainer image)
+    {
+        WraperFromResult<string>($"{CurAppHost.ApiAddress}/Docker/Stop/{image.Id}", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+     {
+         LoadImages();
+     });
+    }
+    async Task OnCreateContainer()
+    {
+        NavManager.NavigateTo($"/appCenter/docker/createContainer/{HostName}");
+
+    }
+
+}

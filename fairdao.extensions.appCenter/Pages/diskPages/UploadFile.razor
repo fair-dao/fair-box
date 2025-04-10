@@ -1,0 +1,156 @@
+﻿@page "/appCenter/disk/upload/{HostName}/{Path}/{DataType}"
+@inherits AppCenterBase
+@namespace fairdao.extensions.appCenter.Pages
+@using System.Net.Http.Headers
+@using Microsoft.Extensions.Logging
+@using static fairdao.extensions.appCenter.shared.Records
+@inject ILogger<UploadFile> Logger
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["上传文件"] - ( @Path )
+    </TitlePanel>
+    <ContentPanel>
+        <FluentInputFile Id="my-file-uploader"
+                         Mode="InputFileMode.SaveToTemporaryFolder"
+                         Multiple="true"
+                         MaximumFileCount="4"
+                         MaximumFileSize="MaxFileSize"
+                         Accept="image/*"
+                         OnInputFileChange="OnInputFileChange"
+                         Style="height: 300px;">
+            <ChildContent>
+                <label for="my-file-uploader">
+                    <FluentIcon Value="@(new @Icons.Regular.Size24.ArrowUpload())" />
+                </label>
+
+                <div>
+                    将文件拖拽到此处上传，或点击 <label for="my-file-uploader">浏览</label> 上传<span style="color: red;">*</span>.
+                    <br />
+                    <em>最多上传4个文件</em>
+                </div>
+
+                <div>
+                    <br />
+                </div>
+            </ChildContent>
+        </FluentInputFile>
+        <FluentLabel Alignment="HorizontalAlignment.Center">
+            @progressTitle
+        </FluentLabel>
+
+        @if (Files.Any())
+        {
+            <h4>已上传文件:</h4>
+            <ul>
+                @foreach (var file in Files)
+                {
+                    <li>
+                        <b>@file.Name</b> 🔹
+                        @($"{Decimal.Divide(file.Size, 1024):N} KB") 🔹
+                        @file.ContentType 
+                        <br />
+                        @file.ErrorMessage
+                    </li>
+                }
+            </ul>
+        }
+    </ContentPanel>
+</FairdaoPage>
+@code
+{
+    [Parameter]
+    public string Path { get; set; } = "/";
+
+    [Parameter]
+    public string DataType { get; set; }
+    int ProgressPercent = 0;
+    FluentInputFile? myFileUploader = default!;
+    int? progressPercent;
+    string? progressTitle;
+    protected override async Task OnInitializedAsync()
+    {
+        Path = Uri.UnescapeDataString(Path);
+        base.OnInitializedAsync();
+    }
+    private class File
+    {
+        public string? Name { get; set; }
+        public string ContentType { get; set; }
+
+        public long Size { get; set; }
+
+        public string LocalName { get; set; }
+
+        public string ErrorMessage { get; set; }
+
+    }
+
+    private List<File> Files = new();
+
+    private int maxAllowedFiles = 3;
+    long MaxFileSize = 1024 * 1024 * 80;
+
+    private async Task OnInputFileChange(InputFileChangeEventArgs e)
+    {
+      
+        var upload = false;
+        using var content = new MultipartFormDataContent();
+
+
+        // 添加文本表单dataType
+        var textContent = new StringContent(DataType);
+        textContent.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("form-data")
+            {
+                Name = "dataType"
+            };
+        content.Add(textContent);
+
+        textContent = new StringContent(Path);
+        textContent.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("form-data")
+            {
+                Name = "curPath"
+            };
+        content.Add(textContent);
+
+
+
+        foreach (var file in e.GetMultipleFiles(maxAllowedFiles))
+        {
+
+            File file1 = new File();
+            file1.Name = file.Name;
+            file1.Size = file.Size;
+            file1.ContentType = file.ContentType;
+            Files.Add(file1);
+            try
+            {
+
+
+                var fileContent = new StreamContent(file.OpenReadStream(MaxFileSize));
+
+                fileContent.Headers.ContentType =
+                    new MediaTypeHeaderValue(file.ContentType);
+                content.Add(
+                    content: fileContent,
+                    name: "\"files\"",
+                    fileName: file.Name);
+                upload = true;
+            }
+            catch (Exception ex)
+            {
+                file1.ErrorMessage = ex.Message;
+            }
+
+        }
+
+        if (upload)
+        {
+            await  WraperFromResult<string>($"{CurAppHost.ApiAddress}/Proxy/UploadFiles", content,token:CurAppHost.Token, okAction:(data)=>{
+                DialogService.ShowSuccess("上传成功");
+                this.StateHasChanged();
+            });
+         
+        }
+    }
+
+}

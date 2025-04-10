@@ -1,0 +1,45 @@
+﻿@page "/appCenter/sysInfo/{HostName}"
+@inherits AppCenterBase
+@namespace fairdao.extensions.appCenter.Pages
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["系统状态"]
+    </TitlePanel>
+    <ContentPanel>
+        <FluentDataGrid Items="@sysInfos">
+            <TemplateColumn Tooltip="true" SortBy="@sortByName" Title="名称" InitialSortDirection="SortDirection.Ascending">
+                @(context.Key)
+            </TemplateColumn>
+            <TemplateColumn Tooltip="true" SortBy="@sortByName" Title="值">
+                @(context.Value)
+            </TemplateColumn>
+
+        </FluentDataGrid>
+
+    </ContentPanel>
+</FairdaoPage>
+@code {
+    IQueryable<KeyValuePair<string, string>> sysInfos;
+
+    GridSort<KeyValuePair<string, string>> sortByName = GridSort<KeyValuePair<string, string>>.ByAscending(p => p.Key);
+    protected override async Task OnInitializedAsync()
+    {
+
+        await WraperFromResult<Records.SysInfo>($"{CurAppHost.ApiAddress}/Proxy/SysState", token: CurAppHost.Token, okAction: (data) =>
+       {
+           var infos = new List<KeyValuePair<string, string>>();
+           infos.Add(new KeyValuePair<string, string>(Localer["机器名"], data.MachineName));
+           infos.Add(new KeyValuePair<string, string>(Localer["处理器个数"], data.ProcessorCount.ToString()));
+           infos.Add(new KeyValuePair<string, string>(Localer["操作系统"], data.OSVersion.ToString()));
+           infos.Add(new KeyValuePair<string, string>(Localer["进程名"], data.ProcessName));
+           infos.Add(new KeyValuePair<string, string>(Localer["当前文件夹"], data.CurrentDirectory));
+           infos.Add(new KeyValuePair<string, string>(Localer["已使用内存/峰值/允许最大值"], data.Memory));
+           infos.Add(new KeyValuePair<string, string>(Localer["静态文件扩展"], data.CacheExtNames));
+           this.sysInfos = infos.AsQueryable();
+           this.StateHasChanged();
+       });
+
+
+        base.OnInitializedAsync();
+    }
+}
