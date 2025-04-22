@@ -11,6 +11,9 @@ namespace fairdao.extensions.appCenter.shared
 {
     public class Records
     {
+      
+        public record HostList(string DomainRoot,List<HostLine> Hosts);
+
         /// <summary>
         /// 进程信息
         /// </summary>

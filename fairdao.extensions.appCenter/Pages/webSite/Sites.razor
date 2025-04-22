@@ -72,11 +72,7 @@
             <FluentOption Value="http" Selected="true">http</FluentOption>
             <FluentOption Value="https">https</FluentOption>
         </FluentSelect>
-        @if (bindType == "https")
-        {
-            <FluentSwitch @bind-Value=RequestCert Label="自动申请证书" />
-        }
-
+     
 
         <FluentTextField @bind-Value=domains Label="@(Localer["主机名列表"])" Placeholder="domain1.com,domain2.net"></FluentTextField>
 
@@ -89,10 +85,7 @@
         {
             <FluentTextField @bind-Value=Des style="width: 100%;" Label="@(Localer["本地文件夹"])"></FluentTextField>
         }
-        @if (Mode == "proxy")
-        {
-            <FluentSwitch @bind-Value=CacheStaticFile Label="缓存静态文件" />
-        }
+      
     </FluentStack>
     <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="height:60px;">
         <FluentButton Appearance="Appearance.Accent" OnClick="CreateService">创建</FluentButton>
@@ -128,8 +121,6 @@
     }
     int? Port = 80;
     string Mode = "local";
-    bool RequestCert = false;
-    bool CacheStaticFile = false;
     GridSort<shared.Records.SiteMap> sortByName = GridSort<shared.Records.SiteMap>.ByAscending(p => p.Name);
 
 
@@ -170,7 +161,7 @@
 
     async Task CreateService()
     {
-        WraperFromResult<List<shared.Records.SiteMap>>($"{CurAppHost.ApiAddress}/Proxy/CreateSite", $"name={name}&bindType={bindType}&domains={domains}&port={Port}&des={Des}&mode={Mode}&requestCert={RequestCert}&cacheStaticFile={CacheStaticFile}", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+        WraperFromResult<List<shared.Records.SiteMap>>($"{CurAppHost.ApiAddress}/Proxy/CreateSite", $"name={name}&bindType={bindType}&domains={domains}&port={Port}&des={Des}&mode={Mode}", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
     {
         _myFluentDialog!.Hide();
         LoadSites();
