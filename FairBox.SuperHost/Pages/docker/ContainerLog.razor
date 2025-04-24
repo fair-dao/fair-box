@@ -1,0 +1,48 @@
+﻿@page "/appCenter/docker/containerLog/{HostName}/{ServiceId}"
+@inherits AppCenterBase
+@namespace FairBox.SuperHost.Pages
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["服务日志"] - (@CurAppHost?.Name)
+    </TitlePanel>
+    <ContentPanel>
+        <FluentTabs  ActiveTabId="tab-v1">
+            <FluentTab Label="正常日志" Id="tab-v1">
+                @((MarkupString)Detail)
+            </FluentTab>
+            <FluentTab Label="出错日志" Id="tab-v2">
+                @((MarkupString)Errors)
+            </FluentTab>
+        </FluentTabs>
+        @((MarkupString)Detail)
+    </ContentPanel>
+</FairdaoPage>
+
+<FluentDialogProvider />
+@code {
+
+    string Detail { get; set; }
+    string Errors{ get; set; }
+    [Parameter]
+    public string ServiceId { get; set; }
+
+
+    protected  override Task OnInitializedAsync()
+    {
+
+
+        WraperFromResult<List<string>>($"{CurAppHost.ApiAddress}/Docker/Container/Log/{ServiceId}", "", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+        {
+            Detail = data[0];
+            Errors = data[1];
+            this.StateHasChanged();
+
+        });
+
+       return  base.OnInitializedAsync();
+    }
+
+
+
+
+}

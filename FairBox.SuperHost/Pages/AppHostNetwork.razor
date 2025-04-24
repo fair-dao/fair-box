@@ -1,0 +1,147 @@
+﻿@using ApexCharts
+@using static FairBox.SuperHost.shared.Records
+@inherits fairdao.extensions.shared.Pages.Page
+@namespace FairBox.SuperHost.Pages
+@if (LastResource != null)
+{
+	<FluentDesignTheme @bind-Mode="@Mode" StorageName="theme" />
+}
+@if (DataSource.BaseInfo != null)
+{
+	<ApexChart TItem="HostInfo.RealtimeInfo" @ref="chart" Title="网络资源(%)" Options="resourceOptions" Width="320" Height="180">		
+	
+		<ApexPointSeries TItem="HostInfo.RealtimeInfo"
+						 Items="DataSource.Resources"
+						 SeriesType="@SeriesType.Area"
+						 Name="网络接收"
+						 XValue="@(e => DateTimeOffset.UnixEpoch.AddMilliseconds(e.Timestamp).DateTime.ToString("mmss"))"
+						 YAggregate="@(e => e.Sum(e => Math.Round(DataSource.BaseInfo.NetMax<=0? 0: ((decimal)e.NetReceived*100)/DataSource.BaseInfo.NetMax,4)))" />
+		<ApexPointSeries TItem="HostInfo.RealtimeInfo"
+						 Items="DataSource.Resources"
+						 SeriesType="@SeriesType.Area"
+						 Name="网络发送"
+						 XValue="@(e => DateTimeOffset.UnixEpoch.AddMilliseconds(e.Timestamp).DateTime.ToString("mmss"))"
+						 YAggregate="@(e => e.Sum(e => Math.Round(DataSource.BaseInfo.NetMax<=0? 0: ((decimal)e.NetSend*100)/DataSource.BaseInfo.NetMax,4)))" />
+	</ApexChart>
+}
+@code {
+	private ApexChartOptions<HostInfo.RealtimeInfo> resourceOptions = new ApexChartOptions<HostInfo.RealtimeInfo>();
+
+	ApexChart<HostInfo.RealtimeInfo> chart;
+
+
+
+	HostInfo.RealtimeInfo LastResource;
+
+	private DesignThemeModes mode;
+
+	public DesignThemeModes Mode
+	{
+		get
+		{
+
+			return mode;
+		}
+		set
+		{
+			mode = value;
+			resourceOptions.Theme = new Theme
+				{ Mode = mode == DesignThemeModes.Dark ? ApexCharts.Mode.Dark : ApexCharts.Mode.Light };
+
+		}
+	}
+
+	[Inject]
+	public required GlobalState GlobalState { get; set; }
+
+	AppHost dataSource;
+
+	[Parameter]
+	public AppHost DataSource
+	{
+		get
+		{
+			return dataSource;
+		}
+		set
+		{
+			dataSource = value;
+			if (dataSource.Resources?.Count > 0)
+			{
+				LastResource = dataSource.Resources[dataSource.Resources.Count - 1];
+			}
+			chart?.UpdateSeriesAsync(true);
+		}
+	}
+
+
+	protected override void OnInitialized()
+	{
+
+
+		resourceOptions.Colors = new List<string> { "#32F16C", "#F13232", "#551133", "#203232", "#CC0033", "#1100FF" };
+
+		resourceOptions.Fill = new Fill
+			{
+
+				Type = new List<FillType> { FillType.Gradient, FillType.Gradient, FillType.Gradient, FillType.Gradient, FillType.Gradient, FillType.Gradient },
+				Gradient = new FillGradient
+				{
+					ShadeIntensity = 1,
+					OpacityFrom = 0.2,
+					OpacityTo = 0.9,
+
+				}
+			};
+
+		resourceOptions.Yaxis = new List<YAxis>();
+		resourceOptions.Yaxis.Add(new YAxis
+			{
+				Labels = new YAxisLabels
+				{
+					Formatter = @"function (value, index, w) {
+                    return Number(value).toLocaleString();}"
+				}
+			}
+		);
+		Task.Run(() => FlushHost());
+		base.OnInitialized();
+	}
+	bool stopping = false;
+
+	async void FlushHost()
+	{
+		if (DataSource.Token == null) return;
+		while (!stopping)
+		{
+			try
+			{
+
+				var result = await httpClient.WithBearer(DataSource.Token).SubmitResult<HostInfo.RealtimeInfo>($"{DataSource.ApiAddress}/Sys/Top/Network");
+				if (result != null)
+				{
+					if (DataSource.Resources == null) DataSource.Resources = new List<HostInfo.RealtimeInfo>();
+					DataSource.Resources.Add(result);
+					if (DataSource.Resources.Count > 1 && (DataSource.Resources.Count > 10 || DataSource.Resources[0].Timestamp == 0)) DataSource.Resources.RemoveAt(0);
+					chart?.UpdateSeriesAsync(true);
+					this.StateHasChanged();
+
+				}
+			}
+			catch
+			{
+
+			}
+			await Task.Delay(30000);
+
+		}
+	}
+
+	protected override ValueTask DisposeAsync(bool disposing)
+	{
+		stopping = true;
+		return base.DisposeAsync(disposing);
+	}
+
+
+}

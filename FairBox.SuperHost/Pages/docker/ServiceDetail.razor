@@ -1,0 +1,53 @@
+﻿@page "/appCenter/docker/serviceDetail/{HostName}/{ServiceId}"
+@inherits AppCenterBase
+@implements IAsyncDisposable
+@namespace FairBox.SuperHost.Pages
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["服务详情"] - (@CurAppHost?.Name)
+    </TitlePanel>
+    <ContentPanel>
+        <div>
+            服务未正常启动，请在命令行输入如下语句查看详情：
+        </div>
+        <div>docker service ps  @ServiceId  --no-trunc</div>
+
+        @((MarkupString)Detail)
+    </ContentPanel>
+</FairdaoPage>
+
+<FluentDialogProvider />
+@code {
+
+    string Detail { get; set; }
+    [Parameter]
+    public string ServiceId { get; set; }
+
+    IJSInProcessObjectReference module;
+
+    protected async override Task OnInitializedAsync()
+    {
+        module = await JSRuntime.InvokeAsync<IJSInProcessObjectReference>("import",
+           "/_content/fairdao.extensions.shared/fairdao.js");
+
+        await WraperFromResult<String>($"{CurAppHost.ApiAddress}/Docker/Service/Detail/{ServiceId}", "", HttpMethod.Post, token: CurAppHost.Token, okAction: async (data) =>
+        {
+            Detail = await module.InvokeAsync<string>("base.FormatJson", data);
+            this.StateHasChanged();
+
+        });
+
+        await base.OnInitializedAsync();
+    }
+
+
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        if (module is not null)
+        {
+            await module.DisposeAsync();
+        }
+    }
+
+}

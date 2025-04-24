@@ -1,0 +1,227 @@
+﻿@inherits fairdao.extensions.shared.Pages.Page
+@namespace FairBox.SuperHost.Pages
+@using ApexCharts
+@using fairdao.extensions.shared.entity
+@inject IDialogService DialogService
+@using static FairBox.SuperHost.shared.Records
+@using Color= Microsoft.FluentUI.AspNetCore.Components.Color
+
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["主机管理"]
+    </TitlePanel>
+    <ActionPanel>
+        <FluentIcon Value="@(new Icons.Regular.Size20.Add())" Title="@Localer["添加主机"]" Color="Color.Fill" OnClick="()=> AddHost(null)" />
+    </ActionPanel>
+    <ContentPanel>
+
+        @if (appHosts != null)
+        {
+            <div class="card-list">
+
+                @foreach (var item in appHosts)
+                {
+
+                    <FluentCard  AreaRestricted="false">
+                        <FluentHeader>
+                            @item.Name
+                            <FluentSpacer />
+                            <FluentIcon Value="@(new Icons.Regular.Size20.DualScreenUpdate())" Title="@Localer["更新"]" Color="Color.Fill" OnClick="@(() => UpdateHostInfo(item) )" />
+                            <FluentIcon Value="@(new Icons.Regular.Size20.ArrowClockwise())" Title="@Localer["重启"]" Color="Color.Fill" OnClick="@(() => Restart(item) )" />
+                            <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" Title="@Localer["移除"]" Color="Color.Fill" OnClick="@(() => Delete(item) )" />
+                        </FluentHeader>
+                        <FluentStack Orientation=" Microsoft.FluentUI.AspNetCore.Components.Orientation.Vertical" HorizontalAlignment="HorizontalAlignment.Center">
+                            <AppHostChart DataSource="item" />
+                            <AppHostNetwork DataSource="item" />
+                        </FluentStack>
+                        <FluentDivider Style="padding-bottom:1rem;" />
+                        <AppCenterOpeator DataSource="item" />
+
+                    </FluentCard>
+
+                }
+            </div>
+        }
+
+
+    </ContentPanel>
+</FairdaoPage>
+
+<FluentDialogProvider />
+@code {
+
+
+    async Task UpdateHostInfo(AppHost host)
+    {
+        await WraperFromResult<HostInfo.Base>($"{host.ApiAddress}/Sys/Info", okAction: async (data) =>
+            {
+                host.BaseInfo = data;
+                host.Name = $"{data.OSName}-{data.HostName}";
+                await sysHelper.SetCache("appcenterConfig", CurExtender.AppConfig);
+                this.StateHasChanged();
+            });
+    }
+
+
+    IQueryable<AppHost> appHosts;
+
+    Dictionary<string, object>? Params { get; set; }
+
+    GridSort<AppHost> sortByName = GridSort<AppHost>.ByAscending(p => p.Name);
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+
+        var appHosts = CurExtender.AppConfig?.Hosts?.AsQueryable();
+        if (appHosts != null)
+        {
+            this.appHosts = appHosts;
+            foreach (var host in appHosts)
+            {
+                LoadHost(host);
+            }
+
+        }
+
+        Task.Run(() => SaveHostData());
+
+        base.OnInitializedAsync();
+    }
+    async void Delete(AppHost host)
+    {
+        CurExtender.AppConfig.Hosts.Remove(host);
+        await sysHelper.SetCache("appcenterConfig", CurExtender.AppConfig);
+
+    }
+
+
+
+    void LoadHost(AppHost host)
+    {
+        if (host.Resources == null)
+        {
+            host.Resources = new List<HostInfo.RealtimeInfo>();
+        }
+        if (host.Resources.Count == 0)
+        {
+            host.Resources.Add(new HostInfo.RealtimeInfo(0, 0, 0, 0, 0, 0, 0));
+        }
+        if (host.Chart == null) host.Chart = new ApexChart<HostInfo.RealtimeInfo>();
+        if (host.BaseInfo == null)
+        {
+            UpdateHostInfo(host);
+        }
+
+    }
+
+
+    async void SaveHostData()
+    {
+        while (!stopping)
+        {
+            await Task.Delay(10000);
+            try
+            {
+                if (nextSaveTime < DateTime.Now)
+                {
+                    nextSaveTime = DateTime.Now.AddMinutes(1);
+                    await sysHelper.SetCache("appcenterConfig", CurExtender.AppConfig);
+                }
+            }
+            catch
+            {
+
+            }
+            await Task.Delay(60000);
+        }
+
+    }
+
+    DateTime nextSaveTime;
+
+
+
+    async void Restart(AppHost host)
+    {
+
+        WraperFromResult<string>($"{host.ApiAddress}/Proxy/Restart", "", HttpMethod.Post, token: host.Token, okAction: (data) =>
+        {
+
+            DialogService.ShowSuccessAsync("主机服务已重启！");
+        });
+    }
+
+    bool stopping = false;
+
+    protected override ValueTask DisposeAsync(bool disposing)
+    {
+        stopping = true;
+        return base.DisposeAsync(disposing);
+    }
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+    }
+
+
+    async void AddHost(AppHost? host = null)
+    {
+        if (host == null) host = new AppHost { Name = "服务器群组", ApiAddress = "https://entry.etchosts.work" };
+        DialogParameters parameters = new()
+            {
+                Title = "导入服务器群组",
+                PrimaryAction = "Yes",
+                SecondaryAction = "No",
+                Width = "500px",
+                TrapFocus = true,
+                Modal = true,
+                PreventScroll = true,
+                ShowDismiss = false
+
+            };
+
+        IDialogReference dialog = await DialogService.ShowDialogAsync<AppCenterDialog>(host, parameters);
+        DialogResult? result = await dialog.Result;
+
+
+        if (!result.Cancelled)
+        {
+            AppHost? newHost = result.Data as AppHost;
+            if (!String.IsNullOrEmpty(newHost?.ApiAddress))
+            {
+                try
+                {
+                    string data = await httpClient.GetString($"{newHost.ApiAddress}/Host/List?groupId={newHost.Token}");
+                    Console.WriteLine($"list data:{data}");
+                    var r = System.Text.Json.JsonSerializer.Deserialize<HostList>(data);
+
+                    string token = $"super/any/{newHost.Token}";
+                    if (CurExtender.AppConfig.Hosts == null) CurExtender.AppConfig.Hosts = new();
+                    foreach (var host1 in r.Hosts)
+                    {
+                        AppHost appHost = new AppHost() { ApiAddress = $"https://{host1.Alias}{r.DomainRoot}", Name = host1.Alias, Token = token };
+                        CurExtender.AppConfig.Hosts.Add(appHost);
+                        LoadHost(appHost);
+                    }
+
+                    sysHelper.SetCache("appcenterConfig", CurExtender.AppConfig).Wait();
+                    appHosts = CurExtender.AppConfig?.Hosts?.AsQueryable();
+                    this.StateHasChanged();
+                }
+                catch (Exception e)
+                {
+                    DialogService.ShowError(e.Message);
+                    AddHost(newHost);
+                }
+
+
+            }
+
+        }
+
+    }
+}

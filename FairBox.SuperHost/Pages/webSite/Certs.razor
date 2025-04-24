@@ -1,0 +1,79 @@
+﻿@page "/appCenter/certs/{HostName}"
+@inherits AppCenterBase
+@namespace FairBox.SuperHost.Pages
+@inject IDialogService DialogService
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["证书列表"] - (@CurAppHost?.Name)
+    </TitlePanel>
+    <ActionPanel>
+        <FluentIcon Value="@(new Icons.Regular.Size24.AddCircle())" Color="Color.Fill" OnClick="@(()=>{NavManager.NavigateTo($"/appCenter/disk/upload/{HostName}/certs/cert");})" />
+    </ActionPanel>
+    <ContentPanel>
+
+        <FluentDataGrid Items="@SiteMaps" Virtualize="true" ItemSize="46">
+            <ChildContent>
+                <TemplateColumn SortBy="@sortByName" Title="证书名" InitialSortDirection="SortDirection.Ascending">
+                    @(context.Name)
+                </TemplateColumn>
+           
+                <TemplateColumn Title="域名" Align="Align.Center">
+                    @(context.Domain)
+                </TemplateColumn>
+                <TemplateColumn Title="颁发机构" Align="Align.Center">
+                    @(context.Subject)
+                </TemplateColumn>
+                <TemplateColumn Title="剩余天数" Align="Align.Center">
+                    @(context.Days)
+                </TemplateColumn>
+                <TemplateColumn Title="操作" Align="@Align.End">
+                    <FluentButton Title="删除" IconEnd="@(new Icons.Regular.Size20.Delete())" OnClick="@(() =>CallAPI($"/Proxy/RemoveCert",$"domain={context.Name}",okAction:()=>{LoadCerts();}))" />
+                </TemplateColumn>
+            </ChildContent>
+            <EmptyContent>
+                <FairdaoPageMessage RecordNotFound></FairdaoPageMessage>
+            </EmptyContent>
+            <LoadingContent>
+                Loading...
+            </LoadingContent>
+        </FluentDataGrid>
+
+    </ContentPanel>
+</FairdaoPage>
+<FluentDialogProvider />
+@code {
+    private bool Hidden { get; set; } = true;
+    IQueryable<shared.Records.SiteCert> SiteMaps;
+
+
+    GridSort<shared.Records.SiteCert> sortByName = GridSort<shared.Records.SiteCert>.ByAscending(p => p.Name);
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        LoadCerts();
+        base.OnInitializedAsync();
+    }
+
+
+
+    void LoadCerts()
+    {
+        WraperFromResult<List<shared.Records.SiteCert>>($"{CurAppHost.ApiAddress}/Proxy/Certs", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+     {
+         SiteMaps = data.AsQueryable();
+         this.StateHasChanged();
+     });
+    }
+
+    void Delete(shared.Records.SiteCert image)
+    {
+        WraperFromResult<string>($"{CurAppHost.ApiAddress}/Docker/ServiceRemove/{image.Name}", "", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+           {
+               LoadCerts();
+           });
+    }
+
+
+
+}

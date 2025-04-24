@@ -1,0 +1,131 @@
+﻿@page "/appCenter/docker/createService/{HostName}"
+@inherits AppCenterBase
+@namespace FairBox.SuperHost.Pages
+@using System.Text
+@inject IDialogService DialogService
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["创建服务"] - (@CurAppHost?.Name)
+    </TitlePanel>
+    <ContentPanel>
+        <div>
+            在Windows 环境下，请勿部署公开端口的服务（public port:target port），否则无法正常启动服务
+        </div>
+
+        <FluentStack Orientation="Orientation.Vertical">
+            <FluentSelect Label="模板"
+                          Items=@Yamls
+                          TOption="Records.DockerServiceTemplate"
+                          OptionText="a=>a.Name"
+                          SelectedOptionChanged="TemplateChanged" />
+            
+            <FluentTextArea @bind-Value=Remark Label="@(Localer["描述"])" Placeholder="" Rows="3" Style="width:100%"></FluentTextArea>
+            <FluentTextField @bind-Value=ServiceName style="width: 100%;" Label="@(Localer["服务名称"])"></FluentTextField>
+            <FluentTextArea @bind-Value=YamlText Label="@(Localer["脚本"])" Placeholder="" Rows="15" Style="width:100%"></FluentTextArea>
+            <FluentStack Width="100%">
+                <FluentInputFile Mode="InputFileMode.Buffer"
+                                 AnchorId="btnUpload"
+                                  DragDropZoneVisible="false"
+                                 MaximumFileSize="@(100 * 1024 * 1024)"
+                                 OnFileUploaded="@OnFileUploadedAsync" />
+
+                <FluentButton Id="btnUpload" Appearance="Appearance.Accent">导入</FluentButton>
+                <FluentButton Appearance="Appearance.Accent" Loading="@(Loaded==false)" OnClick="Save">保存</FluentButton>
+                <FluentButton Appearance="Appearance.Accent" Loading="@(Loaded==false)" OnClick="OnCreateContainer">部署</FluentButton>
+            </FluentStack>
+        </FluentStack>
+    </ContentPanel>
+</FairdaoPage>
+
+
+<FluentDialogProvider />
+
+
+
+@code {
+
+    List<Records.DockerServiceTemplate> Yamls { get; set; }
+
+    string YamlText { get; set; }
+    string Remark { get; set; }
+    string ServiceName { get; set; }
+
+
+    async Task OnFileUploadedAsync(FluentInputFileEventArgs file)
+    {      
+     
+        try
+        {
+
+            string data = Encoding.UTF8.GetString(file.Buffer.Data,0,(int)file.Size);
+            YamlText = data;
+
+        }
+        catch (Exception e)
+        {
+            DialogService.ShowErrorAsync(e.Message);
+        }
+        this.StateHasChanged();
+        await file.Stream!.DisposeAsync();
+    }
+
+ 
+
+    async Task OnCreateContainer()
+    {
+        await WraperFromResult<string>($"{CurAppHost.ApiAddress}/Docker/CreateService",
+        $"serviceName={ServiceName}&content={YamlText}",
+        HttpMethod.Post, token: CurAppHost.Token, okAction: async (data) =>
+            {
+                Back();
+            });
+    }
+
+
+    async Task TemplateChanged(Records.DockerServiceTemplate selected)
+    {
+        Remark = selected.Remark;
+        ServiceName = selected.Name;
+        if (selected.Name != "请选择")
+        {
+
+
+            await WraperFromResult<String>($"{CurAppHost.ApiAddress}/Docker/GetYaml", "yamlName=" + selected.Link, HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+              {
+                  YamlText = data;
+                  this.StateHasChanged();
+              });
+        }
+        else
+        {
+            YamlText = "";
+        }
+    }
+
+
+
+    async Task Save()
+    {
+    
+        await WraperFromResult<String>($"{CurAppHost.ApiAddress}/Docker/SaveYaml", $"serviceName={ServiceName}&content={YamlText}&remark={Remark}", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+              {
+                  DialogService.ShowSuccessAsync("保存成功");
+                  this.StateHasChanged();
+              });
+    }
+
+
+    protected async override Task OnInitializedAsync()
+    {
+        await WraperFromResult<List<Records.DockerServiceTemplate>>($"{CurAppHost.ApiAddress}/Docker/GetServiceTemplates", "", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+        {
+            data.Insert(0, new Records.DockerServiceTemplate("请选择", "", "", ""));
+            Yamls = data;
+
+        });
+
+        await base.OnInitializedAsync();
+    }
+
+
+}

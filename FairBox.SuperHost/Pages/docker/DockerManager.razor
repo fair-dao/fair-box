@@ -1,0 +1,44 @@
+﻿@page "/appCenter/dockerManager/{HostName}"
+@namespace FairBox.SuperHost.Pages
+@inherits AppCenterBase
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        Docker @Localer["管理"] - (@CurAppHost?.Name)
+    </TitlePanel>
+    <ContentPanel>
+        <FluentGrid Spacing="3" Class="fair-desk" AdaptiveRendering="true">
+            <FluentGridItem xs="4" sm="3" lg="2">
+                <FairdaoShortcut Icon="@(new Icons.Regular.Size20.DesktopFlow())" Text="@Localer["节点列表"]" Link="@($"/appCenter/docker/nodes/{CurAppHost.Name}")" />
+            </FluentGridItem>
+            <FluentGridItem xs="4" sm="3" lg="2">
+                <FairdaoShortcut Icon="@(new Icons.Regular.Size20.TextBulletListSquare())" Text="@Localer["镜像列表"]" Link="@($"/appCenter/docker/images/{CurAppHost.Name}")" />
+            </FluentGridItem>
+            <FluentGridItem xs="4" sm="3" lg="2">
+                <FairdaoShortcut Icon="@(new Icons.Regular.Size20.TextBulletListSquare())" Text="@Localer["服务列表"]" Link="@($"/appCenter/docker/services/{CurAppHost.Name}")" />
+            </FluentGridItem>
+            <FluentGridItem xs="4" sm="3" lg="2">
+                <FairdaoShortcut Icon="@(new Icons.Regular.Size20.ListBar())" Text="@Localer["容器列表"]" Link="@($"/appCenter/docker/containers/{CurAppHost.Name}")" />
+            </FluentGridItem>
+            <FluentGridItem xs="4" sm="3" lg="2">
+                <FairdaoShortcut Icon="@(new Icons.Regular.Size20.KeyMultiple())" Text="@Localer["密钥列表"]" Link="@($"/appCenter/docker/secrets/{CurAppHost.Name}")" />
+            </FluentGridItem>
+            <FluentGridItem xs="4" sm="3" lg="2">
+                <FairdaoShortcut Icon="@(new Icons.Regular.Size20.PersonPasskey())" Text="@Localer["镜像仓库密钥"]" Link="@($"/appCenter/docker/registry/{CurAppHost.Name}")" />
+            </FluentGridItem>
+        </FluentGrid>
+    </ContentPanel>
+</FairdaoPage>
+<FluentDialogProvider />
+@code {
+    string Title;
+
+    protected override void OnInitialized()
+    {
+        this.Title = Localer["Docker 管理"];
+
+        base.OnInitialized();
+    }
+
+ 
+
+}

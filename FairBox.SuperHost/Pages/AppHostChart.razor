@@ -1,0 +1,214 @@
+﻿@using ApexCharts
+@using static FairBox.SuperHost.shared.Records
+@inherits fairdao.extensions.shared.Pages.Page
+@namespace FairBox.SuperHost.Pages
+@if (LastResource != null)
+{
+    <FluentDesignTheme @bind-Mode="@Mode" StorageName="theme" />
+    <FluentStack Style="padding-top:1rem;">
+        <FluentLabel>系统：</FluentLabel>
+        @DataSource.BaseInfo?.OSName
+        <FluentSpacer />
+        <FluentLabel>计算机名：</FluentLabel>
+        @DataSource.BaseInfo?.HostName
+    </FluentStack>
+    <FluentStack>
+        <div>
+            <p>API地址：</p>
+            @DataSource.ApiAddress
+        </div>
+        <FluentSpacer />
+        <div>
+            <p>
+                网络：@DataSource.BaseInfo?.NICName
+            </p>
+             <FluentTextField @bind-Value=NetMax Style="width:3rem;"></FluentTextField>Mbps
+        </div>
+    </FluentStack>
+    <FluentStack>
+        <FluentLabel>接收：</FluentLabel>@Math.Round((decimal)LastResource.NetReceived / 1024, 1)Kbps
+        <FluentSpacer />
+        <FluentLabel>发送：</FluentLabel>
+        @Math.Round((decimal)LastResource.NetSend / 1024, 1)Kbps
+    </FluentStack>
+    <FluentStack>
+        <FluentLabel>@Localer["核心数量", "appcenter"]：</FluentLabel>
+        @(Math.Round((decimal)LastResource.CPUUsage, 1)) % / @(DataSource.BaseInfo?.Cores ?? 0)
+        <FluentSpacer />
+        <FluentLabel>内存：</FluentLabel>
+        @Math.Round(LastResource.MemoryUsage / 1024 / 1024 / 1024, 1) / @Math.Round((DataSource.BaseInfo?.MemoryTotal ?? 0) / 1024 / 1024 / 1024, 1) G
+    </FluentStack>
+    <FluentStack>
+        <FluentLabel>系统盘：</FluentLabel>
+        @Math.Round((decimal)LastResource.SysDiskUsage / 1024 / 1024 / 1024, 1) / @(Math.Round((decimal)(DataSource.BaseInfo?.SysDiskTotal ?? 0) / 1024 / 1024 / 1024, 1)) G
+        <FluentSpacer />
+        <FluentLabel>应用盘：</FluentLabel>
+        @Math.Round((decimal)LastResource.AppDiskUsage / 1024 / 1024 / 1024, 1) /  @(Math.Round((decimal)(DataSource.BaseInfo?.AppDiskTotal ?? 0) / 1024 / 1024 / 1024, 1)) G
+    </FluentStack>
+}
+@if (DataSource.BaseInfo != null)
+{
+    <ApexChart TItem="HostInfo.RealtimeInfo" @ref="chart" Title="CPU/内存(%)" Options="resourceOptions" Width="320" Height="180">
+        <ApexPointSeries TItem="HostInfo.RealtimeInfo"
+                         Items="@DataSource.Resources"
+                         SeriesType="@SeriesType.Area"
+                         Name="CPU"
+                         XValue="@(e => DateTimeOffset.UnixEpoch.AddMilliseconds(e.Timestamp).DateTime.ToString("mmss"))"
+                         YAggregate="@(e => e.Sum(e => Math.Round(e.CPUUsage,2)))" />
+        <ApexPointSeries TItem="HostInfo.RealtimeInfo"
+                         Items="DataSource.Resources"
+                         SeriesType="@SeriesType.Area"
+                         Name="内存"
+                         XValue="@(e => DateTimeOffset.UnixEpoch.AddMilliseconds(e.Timestamp).DateTime.ToString("mmss"))"
+                         YAggregate="@(e => e.Sum(e => Math.Round(( DataSource.BaseInfo.MemoryTotal<=0? 0: (decimal)e.MemoryUsage*100/DataSource.BaseInfo.MemoryTotal),2)))" />
+    </ApexChart>
+}
+@code {
+    private ApexChartOptions<HostInfo.RealtimeInfo> resourceOptions = new ApexChartOptions<HostInfo.RealtimeInfo>();
+
+    ApexChart<HostInfo.RealtimeInfo> chart;
+
+
+
+    HostInfo.RealtimeInfo LastResource;
+
+    private DesignThemeModes mode;
+
+    public DesignThemeModes Mode
+    {
+        get
+        {
+
+            return mode;
+        }
+        set
+        {
+            mode = value;
+            resourceOptions.Theme = new Theme
+                { Mode = mode == DesignThemeModes.Dark ? ApexCharts.Mode.Dark : ApexCharts.Mode.Light };
+
+        }
+    }
+
+    [Inject]
+    public required GlobalState GlobalState { get; set; }
+
+    AppHost dataSource;
+
+    [Parameter]
+    public AppHost DataSource
+    {
+        get
+        {
+            return dataSource;
+        }
+        set
+        {
+            dataSource = value;
+            if (dataSource.Resources?.Count > 0)
+            {
+                LastResource = dataSource.Resources[dataSource.Resources.Count - 1];
+            }
+            chart?.UpdateSeriesAsync(true);
+        }
+    }
+
+
+
+    public string NetMax
+    {
+        get
+        {
+            return @Math.Round((decimal)(DataSource.BaseInfo?.NetMax ?? 0) / 1000000, 0).ToString();
+        }
+        set
+        {
+            if (DataSource.BaseInfo?.NetMax >= 0)
+            {
+                if (Int32.TryParse(value, out Int32 val))
+                {
+                    DataSource.BaseInfo = new HostInfo.Base(DataSource.BaseInfo.HostName, DataSource.BaseInfo.OSName, DataSource.BaseInfo.Cores,
+                    DataSource.BaseInfo.MemoryTotal, DataSource.BaseInfo.SysDiskTotal,
+                    DataSource.BaseInfo.AppDiskTotal, DataSource.BaseInfo.NICName, val * 1000000, DataSource.BaseInfo.Inited);
+                    //保存
+                    sysHelper.SetCache("appcenterConfig", CurExtender.AppConfig);
+                    chart?.UpdateSeriesAsync(true);
+                }
+            }
+
+        }
+
+    }
+
+
+
+    protected override void OnInitialized()
+    {
+
+
+        resourceOptions.Colors = new List<string> { "#32F16C", "#F13232", "#551133", "#203232", "#CC0033", "#1100FF" };
+
+        resourceOptions.Fill = new Fill
+            {
+
+                Type = new List<FillType> { FillType.Gradient, FillType.Gradient, FillType.Gradient, FillType.Gradient, FillType.Gradient, FillType.Gradient },
+                Gradient = new FillGradient
+                {
+                    ShadeIntensity = 1,
+                    OpacityFrom = 0.2,
+                    OpacityTo = 0.9,
+
+                }
+            };
+
+        resourceOptions.Yaxis = new List<YAxis>();
+        resourceOptions.Yaxis.Add(new YAxis
+            {
+                Labels = new YAxisLabels
+                {
+                    Formatter = @"function (value, index, w) {
+                    return Number(value).toLocaleString();}"
+                }
+            }
+        );
+        Task.Run(() => FlushHost());
+        base.OnInitialized();
+    }
+    bool stopping = false;
+
+    async void FlushHost()
+    {
+        if (DataSource.Token == null) return;
+        while (!stopping)
+        {
+            try
+            {
+
+                var result = await httpClient.WithBearer(DataSource.Token).SubmitResult<HostInfo.RealtimeInfo>($"{DataSource.ApiAddress}/Sys/Top/CPUMemory");
+                if (result != null)
+                {
+                    if (DataSource.Resources == null) DataSource.Resources = new List<HostInfo.RealtimeInfo>();
+                    DataSource.Resources.Add(result);
+                    if (DataSource.Resources.Count > 1 && (DataSource.Resources.Count > 10 || DataSource.Resources[0].Timestamp == 0)) DataSource.Resources.RemoveAt(0);
+                    chart?.UpdateSeriesAsync(true);
+                    this.StateHasChanged();
+
+                }
+            }
+            catch
+            {
+
+            }
+            await Task.Delay(10000);
+
+        }
+    }
+
+    protected override ValueTask DisposeAsync(bool disposing)
+    {
+        stopping = true;
+        return base.DisposeAsync(disposing);
+    }
+
+
+}

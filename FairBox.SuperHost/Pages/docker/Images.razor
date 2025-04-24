@@ -1,0 +1,131 @@
+﻿@page "/appCenter/docker/images/{HostName}"
+@inherits AppCenterBase
+@namespace FairBox.SuperHost.Pages
+@inject IDialogService DialogService
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        Docker @Localer["镜像列表"] - (@CurAppHost?.Name)
+    </TitlePanel>
+    <ActionPanel>
+        <FluentIcon Value="@(new Icons.Regular.Size24.AddCircle())" Color="Color.Fill" OnClick="PullImage" />
+    </ActionPanel>
+    <ContentPanel>
+        @if (Loaded != true)
+        {
+            <FluentProgressRing></FluentProgressRing>
+        }
+        else
+        {
+            <FluentDataGrid Items="@processInfos" Virtualize="true" ItemSize="46">
+                <TemplateColumn SortBy="@sortByName" Title="镜像名" InitialSortDirection="SortDirection.Ascending">
+                    @(context.Name)
+                </TemplateColumn>
+                <TemplateColumn Title="Id" Align="Align.Center">
+                    @(context.Id?.Substring(7, 6))
+                </TemplateColumn>
+
+                <TemplateColumn SortBy="@sortByMemory" Title="大小" Align="Align.End" InitialSortDirection="SortDirection.Ascending">
+                    @(context.Size.ToString("N0"))
+                </TemplateColumn>
+                <TemplateColumn SortBy="@sortByTime" Title="创建时间" Align="Align.End" InitialSortDirection="SortDirection.Descending" IsDefaultSortColumn=true>
+                    @(context.Created.ToString("yy-MM-dd HH:mm"))
+                </TemplateColumn>
+                <TemplateColumn Title="Actions" Align="@Align.End">
+                    <FluentButton Title="更名" IconEnd="@(new Icons.Regular.Size16.Rename())" OnClick="@(() => Rename(context))" />
+                    <FluentButton Title="删除" IconEnd="@(new Icons.Regular.Size16.Delete())" OnClick="@(() => Delete(context))" />
+                </TemplateColumn>
+            </FluentDataGrid>
+        }
+    </ContentPanel>
+</FairdaoPage>
+<FluentDialogProvider />
+<FluentToastProvider />
+@code {
+    IQueryable<shared.Records.DockerImage> processInfos;
+    GridSort<shared.Records.DockerImage> sortByName = GridSort<shared.Records.DockerImage>.ByAscending(p => p.Name);
+    GridSort<shared.Records.DockerImage> sortByMemory = GridSort<shared.Records.DockerImage>.ByAscending(p => p.Size);
+    GridSort<shared.Records.DockerImage> sortByTime = GridSort<shared.Records.DockerImage>.ByAscending(p => p.Created);
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        LoadImages();
+        base.OnInitializedAsync();
+    }
+
+    void LoadImages()
+    {
+        WraperFromResult<List<shared.Records.DockerImage>>($"{CurAppHost.ApiAddress}/Docker/Images", "", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+     {
+         processInfos = data.AsQueryable();
+         this.StateHasChanged();
+     });
+    }
+
+    void Delete(shared.Records.DockerImage image)
+    {
+        WraperFromResult<string>($"{CurAppHost.ApiAddress}/Docker/RMI/{image.Id}", "", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+     {
+         LoadImages();
+     });
+    }
+    async Task Rename(shared.Records.DockerImage image)
+    {
+
+        var text = string.Empty;
+        var dialogInstance = await DialogService.ShowDialogAsync( @<div>
+        <FluentTextField @bind-Value=text Label="@Localer["新的Tag"]" Style="width:90%" Placeholder="imageName:Tag" />
+    </div>
+        , new DialogParameters
+        {
+            Title = Localer["修改Tag"]
+        });
+
+        var result = await dialogInstance.Result;
+        if (!result.Cancelled)
+        {
+            WraperFromResult<string>($"{CurAppHost.ApiAddress}/Docker/TagRename/{image.Id}", $"tagAndName={text}", token: CurAppHost.Token, okAction: (data) =>
+         {
+     LoadImages();
+         });
+        }
+
+
+
+
+    }
+
+    async Task PullImage()
+    {
+        var text = string.Empty;
+        var server = string.Empty;
+
+        var dialogInstance = await DialogService.ShowDialogAsync( @<div>
+        <FluentSelect @bind-Value="@server" TOption="string" Label="镜像源">
+            <FluentOption Value="" Selected="true">自定义</FluentOption>
+            <FluentOption Value="registry.docker-cn.com/">Docker-CN</FluentOption>
+            <FluentOption Value="hub-mirror.c.163.com/">网易</FluentOption>
+            <FluentOption Value="mirrors.tuna.tsinghua.edu.cn/">清华</FluentOption>
+        </FluentSelect>
+        <FluentTextField @bind-Value=text Label="@Localer["镜像名"]" Style="width:90%" Placeholder="imageName:Tag" />
+    </div>
+    , new DialogParameters
+    {
+        Title = Localer["拉取镜像"]
+    });
+
+        var result = await dialogInstance.Result;
+        if (!result.Cancelled)
+        {
+            WraperFromResult<string>($"{CurAppHost.ApiAddress}/Docker/CreateImage", $"image={server}{text}", HttpMethod.Post, token: CurAppHost.Token, okAction: (data) =>
+     {
+         var intent = Enum.GetValues<ToastIntent>()[5];
+         ToastService.ShowToast(intent, "拉取请求已提交");
+         this.StateHasChanged();
+     });
+
+        }
+    }
+
+}
