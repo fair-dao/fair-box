@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.13.35828.75
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FairBox.H5", "FairBox.h5\FairBox.H5.csproj", "{7DD53D01-770A-DCFE-0F39-FA77E46B504D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FairBox.H5", "FairBox.H5\FairBox.H5.csproj", "{7DD53D01-770A-DCFE-0F39-FA77E46B504D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FairBox.app", "FairBox.App\FairBox.App.csproj", "{1F87551A-FF72-434E-AF40-D74B0CF82AD4}"
 EndProject
