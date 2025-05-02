@@ -9,7 +9,7 @@ namespace FairBox.H5
         {
             var builder = WebAssemblyHostBuilder.CreateDefault(args);
             return builder.RunFairHost(
-                new fairdao.extensions.shared.Extender("Fair Box","Fair Dao","1.0"),
+                new fairdao.extensions.shared.Extender("Fair Box","Fair DAO","1.0"),
                  new FairBox.Wallet.Extender(),
                 new FairBox.SuperHost.Extender());
         }
