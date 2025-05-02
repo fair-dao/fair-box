@@ -1,0 +1,29 @@
+﻿@implements IDialogContentComponent<Chain>
+@inherits fairdao.extensions.shared.Pages.Page
+@namespace FairBox.Wallet.Pages
+<FluentStack Orientation=" Microsoft.FluentUI.AspNetCore.Components.Orientation.Vertical">
+    <div> @Localer["切换网络"]</div>
+    <div>
+        @foreach (var net in Chain.CoinNets)
+        {
+            <UListItem Clicked='(e,b)=>SetNetType(net)' Title="@(net.Name)">
+            </UListItem>
+        }
+    </div>
+
+</FluentStack>
+@code {
+    [Parameter]
+    public Chain Content { get; set; } = default!;
+
+    [CascadingParameter]
+    public FluentDialog? Dialog { get; set; }
+
+
+    async void SetNetType(Chain netType)
+    {
+        Content.ChainId = netType.ChainId;
+        Content.Type = netType.Type;
+    }
+
+}

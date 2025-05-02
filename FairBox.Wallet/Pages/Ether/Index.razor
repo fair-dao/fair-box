@@ -1,0 +1,10 @@
+﻿@namespace FairBox.Wallet.Pages.Ether
+<h3>Index: @Chain?.Name  -  @Account?.PubKey</h3>
+
+@code {
+
+    [Parameter]
+    public Chain Chain{ get; set; }
+    [Parameter]
+    public BaseCoin Account{ get; set; }
+}

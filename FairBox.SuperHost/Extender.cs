@@ -10,6 +10,7 @@ using Microsoft.FluentUI.AspNetCore.Components;
 using fairdao.extensions.shared.Pages;
 using ApexCharts;
 using Microsoft.AspNetCore.Components;
+using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons;
 
 
 namespace FairBox.SuperHost

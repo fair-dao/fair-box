@@ -1,0 +1,316 @@
+﻿@page "/wallet/login"
+@using System.Text;
+@using System.Security.Cryptography;
+@using TronNet.Crypto;
+@using TronNet;
+@using fairdao.extensions;
+@inherits PageBase
+
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @Localer["主钱包导入"]
+    </TitlePanel>
+
+    <ContentPanel>
+        <FluentMessageBar Title="提示">
+            @Localer["为了您的私钥或助记语安全，建议您先关闭其它程序，切换到飞行模式,并观察四周是否有人偷窥，确保安全后再进行操作。"]
+        </FluentMessageBar>
+        @if (!IsHelpWordImport && !IsPriKeyImport)
+        {
+            <div style="display:flex; flex-direction:row;">
+                <UButton IsLarge IsFullwidth @onclick="()=>IsPriKeyImport=true">@Localer["私钥"]</UButton>
+                <br />
+                <UButton IsLarge IsFullwidth @onclick="()=>IsHelpWordImport=true">Fair @Localer["助记语"]</UButton>
+                @if (hasTronWeb == true)
+                {
+                    <br />
+
+                    <UButton IsLarge IsFullwidth @onclick='()=>ToLogin("tron")'>Tron @Localer["Tron钱包"]</UButton>
+                }
+                @if (hasEthWeb == true)
+                {
+                    <br />
+
+                    <UButton IsLarge IsFullwidth @onclick='()=>ToLogin("ether")'>Ethereum @Localer["Ehternum钱包"]</UButton>
+                }
+            </div>
+        }
+        else
+        {
+
+            <EditForm Model="@importInfo" OnValidSubmit="@HandleValidSubmit">
+                <FluentStack Orientation="Orientation.Vertical">
+                    <div>
+                        <FluentSelect Name="class" Id="classification" @bind-Value="importInfo.PreHelpWord" TOption="string" Label="@Localer["钱包前缀"]" Width="100%">
+                            <FluentOption value="fair">Fair</FluentOption>
+                            <FluentOption value="world">World</FluentOption>
+                            <FluentOption value="pure">Pure</FluentOption>
+                            <FluentOption value="love">Love</FluentOption>
+                            <FluentOption value="game">Game</FluentOption>
+                            <FluentOption value="hard">Hard</FluentOption>
+                            <FluentOption value="">不设定</FluentOption>
+                        </FluentSelect>
+                    </div>
+
+
+                    @if (IsHelpWordImport)
+                    {
+                        <div>
+                            <FluentTextField @bind-Value="importInfo.HelpWord" Label="助记语"  Width="100%" />
+                        </div>
+                    }
+                    @if (IsPriKeyImport)
+                    {
+                        <div>
+                            <FluentTextField @bind-Value="importInfo.PriKey" Label="您的私钥"  Width="100%" />
+                        </div>
+
+                    }
+
+                    <div>
+                        <FluentTextField @bind-Value="importInfo.Password" Label="交易签名密码"  Width="100%" />
+                    </div>
+                    <div>
+                        <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent"  Width="100%">@Localer["导入"]</FluentButton>
+                    </div>
+                </FluentStack>
+            </EditForm>
+
+
+        }
+    </ContentPanel>
+
+</FairdaoPage>
+
+<FluentDialogProvider />
+
+
+
+
+@code {
+
+
+    [SupplyParameterFromForm]
+    private ImportWalletInfo importInfo { get; set; }
+
+
+    bool IsPriKeyImport { get; set; } = false;
+
+    bool IsHelpWordImport { get; set; } = false;
+
+
+    bool? hasTronWeb { get; set; }
+
+    bool? hasEthWeb { get; set; }
+    /// <summary>
+    /// 正在登录
+    /// </summary>
+    bool Logging { get; set; } = false;
+
+    void IntoHomePage()
+    {
+        navManager.NavigateTo("/");
+    }
+
+    async void HandleValidSubmit()
+    {
+        try{
+            string priKey = null;
+            this.importInfo.Check();
+            SHA256 s256 = SHA256.Create();
+            if (IsHelpWordImport){
+           
+                priKey = FairWalletHelper.FairHelpWordToPrikey(this.importInfo.PreHelpWord,  this.importInfo.HelpWord);
+            }
+            else
+            {
+                priKey =  this.importInfo.PriKey.Trim();
+            }
+
+            LocalUser localUser = new LocalUser();
+
+            #region 生成本地账户的公钥和私钥，并给私钥加密
+
+            string pubKey = FairWalletHelper.GetEtherWalletAddress(priKey);
+
+            string priSafeKey = walletService.GetSafePriKey(priKey, this.importInfo.Password);
+
+            localUser.Account = pubKey;
+            localUser.Key = priSafeKey;
+            #endregion
+
+
+            #region 生成本体账户（导入的私钥就）
+
+            //波场号
+            string tronPubKey1 = FairWalletHelper.GetTronWalletAddress(priKey);
+            localUser.UserCoin.Coins.Add(new TronCoin
+            {
+                Id = Guid.NewGuid(),
+                PubKey = tronPubKey1,
+                Seed = 0,
+                ChainId = Chain.CoinNets.FirstOrDefault(m => m.Currency == "TRX")?.Id,
+                UpdateTime = DateTime.UtcNow,
+                SortId = DateTime.UtcNow.Ticks,
+                Remark = "TRX"
+            });
+            //以太坊
+            string ethPubKey1 = FairWalletHelper.GetEtherWalletAddress(priKey);
+            localUser.UserCoin.Coins.Add(new TronCoin
+            {
+                Id = Guid.NewGuid(),
+                PubKey = ethPubKey1,
+                Seed = 0,
+                ChainId = Chain.CoinNets.FirstOrDefault(m => m.Currency == "ETH")?.Id,
+                UpdateTime = DateTime.UtcNow,
+                SortId = DateTime.UtcNow.Ticks,
+                Remark = "ETH"
+            });
+
+
+            #endregion
+
+
+            #region 设置当前账户
+            fairdao.extensions.shared.entity.BlockchainAccount mainAccount = new fairdao.extensions.shared.entity.BlockchainAccount();
+            mainAccount.Account = ethPubKey1;
+            mainAccount.ChainId = "ether";
+            mainAccount.AccountType = "inner";
+            mainAccount.TokenExpTime = DateTime.UtcNow.AddYears(1).Ticks;
+            mainAccount.NickName = "I" + ethPubKey1.Substring(ethPubKey1.Length - 6);
+            byte[] msgdata = Encoding.UTF8.GetBytes($"{mainAccount.ChainId}#{mainAccount.Account}#{mainAccount.NickName}#{mainAccount.TokenExpTime}");
+            mainAccount.Sign = FairWalletHelper.SignData(priKey, msgdata);
+            await accountService.ChangeAccountAsync(mainAccount);
+            #endregion
+
+
+            #region 自动生成一个TRX子账户
+            string seed1PriKey = null;
+            int seed = 1;
+
+            seed1PriKey = FairWalletHelper.GenerateSeedKey(priKey, seed.ToString());
+
+            tronPubKey1 = FairWalletHelper.GetTronWalletAddress(seed1PriKey);
+
+            localUser.UserCoin.Coins.Add(new TronCoin
+            {
+                Id = Guid.NewGuid(),
+                PubKey = tronPubKey1,
+                Seed = seed,
+                ChainId = Chain.CoinNets.FirstOrDefault(m => m.Currency == "TRX")?.Id,
+                UpdateTime = DateTime.UtcNow,
+                SortId = DateTime.UtcNow.AddDays(-1).Ticks,
+                Remark = "TRX"
+            });
+            #endregion
+
+            #region 自动生成一个ETH子账户
+
+            ethPubKey1 = FairWalletHelper.GetEtherWalletAddress(seed1PriKey);
+            localUser.UserCoin.Coins.Add(new EthCoin
+            {
+                Id = Guid.NewGuid(),
+                PubKey = ethPubKey1,
+                ChainId = Chain.CoinNets.FirstOrDefault(m => m.Currency == "ETH")?.Id,
+                Seed = seed,
+                SortId = DateTime.UtcNow.AddDays(-1).Ticks,
+                UpdateTime = DateTime.UtcNow,
+                Remark = "ETH"
+            });
+            #endregion
+
+            //缓存本地用户信息
+            await walletService.SaveLocalUserAsync(localUser);
+
+            #region 生成登录签名信息
+            string msg = $"Hello，{pubKey}";
+            msgdata = Encoding.UTF8.GetBytes(msg);
+            string sign = FairWalletHelper.SignData(priKey, msgdata);
+
+            #endregion
+            Nav("/");
+        }catch(Exception e)
+        {
+            DialogService.ShowError(e.Message);
+        }
+    }
+
+
+    /// <summary>
+    /// 第三方钱包
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
+    async Task ToLogin(string type)
+    {
+        Int64 expTime = DateTime.UtcNow.AddYears(1).Ticks;
+        string[] data = await jsRuntime.InvokeAsync<string[]>($"wallet.sign", type, $"{expTime}");
+        Console.WriteLine($"{data[0]},{data[1]},{data[2]}");
+        if (data[0] == "err")
+        {
+            Toast(data[1]);
+            return;
+        }
+        fairdao.extensions.shared.entity.BlockchainAccount walletAccount = new();
+        walletAccount.Account = data[0];
+        walletAccount.ChainId = type;
+        walletAccount.AccountType = "outer";
+        walletAccount.TokenExpTime = expTime;
+        walletAccount.NickName = data[1];
+        walletAccount.Sign = data[2];
+
+        await accountService.ChangeAccountAsync(walletAccount);
+        LocalUser localUser = new LocalUser();
+        //缓存本地用户信息
+        await walletService.SaveLocalUserAsync(localUser);
+
+        Nav("/");
+
+
+    }
+
+
+    IJSObjectReference jsId;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            importInfo = new ImportWalletInfo(Localer);
+            await jsRuntime.InvokeAsync<string>("window.tronWeb.toString");
+
+            hasTronWeb = true;
+        }
+        catch (Exception e)
+        {
+            hasTronWeb = false;
+        }
+        try
+        {
+            await jsRuntime.InvokeAsync<string>("window.ethereum.toString");
+
+            hasEthWeb = true;
+        }
+        catch (Exception e)
+        {
+            hasEthWeb = false;
+        }
+
+
+        Console.WriteLine(hasTronWeb);
+        jsId = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "/_content/FairBox.Wallet/js/wallet.js");
+
+
+        await base.OnInitializedAsync();
+    }
+
+
+
+    protected override ValueTask DisposeAsync(bool disposing)
+    {
+        jsId?.DisposeAsync();
+        return base.DisposeAsync(disposing);
+    }
+
+}

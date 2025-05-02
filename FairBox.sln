@@ -5,7 +5,7 @@ VisualStudioVersion = 17.13.35828.75
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FairBox.H5", "FairBox.H5\FairBox.H5.csproj", "{7DD53D01-770A-DCFE-0F39-FA77E46B504D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FairBox.app", "FairBox.App\FairBox.App.csproj", "{1F87551A-FF72-434E-AF40-D74B0CF82AD4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FairBox.App", "FairBox.App\FairBox.App.csproj", "{1F87551A-FF72-434E-AF40-D74B0CF82AD4}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "解决方案项", "解决方案项", "{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}"
 	ProjectSection(SolutionItems) = preProject
@@ -13,6 +13,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "解决方案项", "解决�
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FairBox.SuperHost", "FairBox.SuperHost\FairBox.SuperHost.csproj", "{26BFE269-51C8-6E14-EFE0-358DC99E44F0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FairBox.Wallet", "FairBox.Wallet\FairBox.Wallet.csproj", "{C595D12A-514F-2F56-18B9-B4EABBDC212B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -34,6 +36,10 @@ Global
 		{26BFE269-51C8-6E14-EFE0-358DC99E44F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{26BFE269-51C8-6E14-EFE0-358DC99E44F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{26BFE269-51C8-6E14-EFE0-358DC99E44F0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C595D12A-514F-2F56-18B9-B4EABBDC212B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C595D12A-514F-2F56-18B9-B4EABBDC212B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C595D12A-514F-2F56-18B9-B4EABBDC212B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C595D12A-514F-2F56-18B9-B4EABBDC212B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

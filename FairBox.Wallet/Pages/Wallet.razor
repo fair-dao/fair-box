@@ -1,0 +1,203 @@
+﻿@page "/wallet/{ChainId?}/{Account?}"
+@using FairBox.Wallet.services.wallet
+@using System.Text;
+@using FairBox.Wallet.entity;
+@namespace FairBox.Wallet.Pages
+@inherits PageBase
+
+
+<FairdaoPage ContentPadding>
+    <TitlePanel>
+        @CurCoinNet?.Name
+    </TitlePanel>
+    <ActionPanel>
+        <FluentIcon Value="@(new Icons.Regular.Size20.NetworkCheck())" Title="@Localer["切换网络"]" Color="Color.Fill" OnClick="()=> SwitchNet(null)" />
+    </ActionPanel>
+    <ContentPanel>
+        @if (WalletType != null)
+        {
+            <DynamicComponent Type="WalletType" Parameters="Parameters"></DynamicComponent>
+        }
+    </ContentPanel>
+</FairdaoPage>
+
+<FluentDialogProvider />
+
+@code {
+
+    [Parameter]
+    public IDictionary<string, object>? Parameters { get; set; }
+
+
+    Type WalletType;
+
+    string Title { get; set; }
+    string NetType { get; set; }
+    WalletProcesser walletProcesser;
+    Chain CurCoinNet;
+
+    [Parameter]
+    public string ChainId { get; set; }
+
+    [Parameter]
+    public string Account { get; set; }
+
+    entity.BaseCoin? CurAccount { get; set; }
+
+    string GetDefaultCardTitle()
+    {
+        if (CurAccount?.PubKey != null)
+        {
+            return $"{CurAccount.Remark} - {CurAccount.Seed} ({CurAccount.PubKey.Substring(0, 5)}**{CurAccount.PubKey.Substring(CurAccount.PubKey.Length - 8)})";
+        }
+        return "";
+    }
+
+    async void SwitchNet(Chain? host = null)
+    {
+        if (host == null) host = new Chain();
+        DialogParameters parameters = new()
+            {
+                Title = "切换网络",
+                PrimaryAction = Localer["确定"],
+                SecondaryAction = Localer["取消"],
+                Width = "500px",
+                TrapFocus = true,
+                Modal = true,
+                PreventScroll = true,
+                ShowDismiss = false
+
+            };
+
+        IDialogReference dialog = await DialogService.ShowDialogAsync<SwitchNetDialog>(host, parameters);
+        DialogResult? result = await dialog.Result;
+
+
+        if (!result.Cancelled)
+        {
+            Chain? newHost = result.Data as Chain;
+            if (!String.IsNullOrEmpty(newHost?.Id))
+            {
+                try
+                {
+                    walletProcesser = WalletProcesser.GetProcesser(newHost);
+                    CurAccount = localUser.UserCoin.Coins.Where(m => m.ChainId == newHost.Id).OrderByDescending(m => m.SortId).FirstOrDefault();
+                    if (CurAccount != null)
+                    {
+                        CurAccount.SortId = DateTime.UtcNow.Ticks;
+                        await walletService.SaveLocalUserAsync();
+                        Console.WriteLine(CurAccount.SortId);
+                    }
+                    this.InvokeAsync(() => StateHasChanged());
+                }
+                catch (Exception e)
+                {
+                    DialogService.ShowError(e.Message);
+                    SwitchNet(newHost);
+                }
+
+
+            }
+
+        }
+
+    }
+
+    LocalUser localUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Console.WriteLine("当前钱包。。。");
+        localUser = await walletService.GetLocalUserAsync();
+        entity.BaseCoin firstUser = null;
+        if (!string.IsNullOrEmpty(ChainId))
+        {
+            if (!string.IsNullOrEmpty(Account))
+            {
+                firstUser = localUser.UserCoin.Coins.Where(m => m.ChainId == ChainId && m.PubKey == Account).FirstOrDefault();
+            }
+            else
+            {
+                firstUser = localUser.UserCoin.Coins.Where(m => m.ChainId == ChainId).OrderByDescending(m => m.SortId).FirstOrDefault();
+            }
+        }
+        else
+        {
+            firstUser = localUser.UserCoin.Coins.OrderByDescending(m => m.SortId).FirstOrDefault();
+        }
+        if (firstUser != null)
+        {
+            CurCoinNet = Chain.CoinNets.FirstOrDefault(m => m.Id == firstUser.ChainId);
+            CurAccount = firstUser;
+            Parameters = new Dictionary<string, object>();
+            Parameters.Add("Account", CurAccount);
+            Parameters.Add("Chain", CurCoinNet);
+            string className = $"FairBox.Wallet.Pages.{CurCoinNet.Type.Substring(0, 1).ToUpper()}{CurCoinNet.Type.Substring(1)}.Index";
+            var type = this.GetType().Assembly.GetType(className);
+            if (type != null) WalletType = type;
+
+        }
+        else
+        {
+            this.Nav("/wallet/login");
+        }
+        base.OnInitializedAsync();
+    }
+
+    bool disposing = false;
+    protected override ValueTask DisposeAsync(bool disposing)
+    {
+        this.disposing = true;
+        return base.DisposeAsync(disposing);
+    }
+
+
+
+
+    void LoadAccunt()
+    {
+
+
+        Task.Run(async () =>
+        {
+            while (!this.disposing)
+            {
+                try
+                {
+                    var data = CurAccount;
+                    if (data?.ChainId != CurCoinNet.Id)
+                    {
+                        await Task.Delay(100);
+                        continue;
+                    }
+
+                    await walletProcesser?.UpdateAssets(data);
+                    if (data == CurAccount && !this.disposing)
+                    {
+                        await this.InvokeAsync(() => this.StateHasChanged());
+                        for (int i = 0; i < 50; i++)
+                        {
+                            if (data != CurAccount || !this.disposing) break;
+                            await Task.Delay(500);
+                        }
+                    }
+                    else
+                    {
+                        await Task.Delay(100);
+
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
+                await Task.Delay(2000);
+
+            }
+
+        });
+    }
+
+
+
+}
