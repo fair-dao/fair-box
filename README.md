@@ -1,1 +1,1 @@
-# superClient
+# Fair DAO App
